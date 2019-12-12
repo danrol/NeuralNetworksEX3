@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
-
+import random
 WITH_LAYER = True
 
 
@@ -11,41 +11,38 @@ def main():
     n_hidden1 = 200
     n_hidden2 = 200
     mnist = input_data.read_data_sets("MNIST_DATA", one_hot=True)
-
+    seed_num = random.randint(1, 1000)
     if WITH_LAYER:
         x = tf.compat.v1.placeholder(tf.float32, [None, n_input], name="Inputs")
         t = tf.compat.v1.placeholder(tf.float32, [None, n_output], name="Targets")
 
-        h1 = tf.Variable(tf.zeros([n_input, n_hidden1]), name="h1")
-        b1 = tf.Variable(tf.zeros([1, n_hidden1]), name="b1")
-        h2 = tf.Variable(tf.zeros([n_hidden1, n_hidden2]), name="h2")
-        b2 = tf.Variable(tf.zeros([1, n_hidden2]), name="b2")
+        h1 = tf.Variable(tf.random.uniform([n_input, n_hidden1], -1, 1, seed=seed_num), name="h1")
+        b1 = tf.Variable(tf.random.uniform([1, n_hidden1], -1, 1, seed=seed_num), name="b1")
+        h2 = tf.Variable(tf.random.uniform([n_hidden1, n_hidden2], -1, 1, seed=seed_num), name="h2")
+        b2 = tf.Variable(tf.random.uniform([1, n_hidden2], -1, 1, seed=seed_num), name="b2")
 
-        w = tf.Variable(tf.zeros([n_hidden2, n_output]), name="Out_layer_w")
-        b = tf.Variable(tf.zeros([1, n_output]), name="Out_biases")
+        w = tf.Variable(tf.random.uniform([n_hidden2, n_output], -1, 1, seed=seed_num), name="Out_layer_w")
+        b = tf.Variable(tf.random.uniform([1, n_output], -1, 1, seed=seed_num), name="Out_biases")
 
-        h1_s = tf.matmul(x, h1) + b1
-        h1_s_zig = tf.nn.relu(h1_s / T)
-        h2_s = tf.matmul(h1_s_zig, h2) + b2
-        h2_s_zig = tf.nn.relu(h2_s / T)
-        z = tf.matmul(h2_s_zig, w) + b
+        h1_s = tf.add(tf.matmul(x, h1), b1)
+        h1_s_rel = tf.nn.relu(h1_s / T)
+        h2_s = tf.add(tf.matmul(h1_s_rel, h2), b2)
+        h2_s_rel = tf.nn.relu(h2_s / T)
+        z = tf.add(tf.matmul(h2_s_rel, w), b)
         y = tf.nn.relu(z / T)
 
     else:
         x = tf.compat.v1.placeholder(tf.float32, [None, n_input], name="Inputs")
         t = tf.compat.v1.placeholder(tf.float32, [None, n_output], name="Targets")
 
-        w = tf.Variable(tf.zeros([n_input, n_output]), name="Out_layer_w")
-        b = tf.Variable(tf.zeros([n_output]), name="Out_biases")
+        w = tf.Variable(tf.random.uniform([n_input, n_output], -1, 1, seed=0), name="Out_layer_w")
+        b = tf.Variable(tf.random.uniform([n_output], -1, 1, seed=0), name="Out_biases")
 
-        z = tf.matmul(x, w) + b
-        y = tf.sigmoid(z/T)
-
-
-    # TODO change sigmoid to RelU
+        z = tf.add(tf.matmul(x, w), b)
+        y = tf.nn.relu(z/T)
 
     cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=t, logits=y))
-    train_step = tf.compat.v1.train.AdamOptimizer(0.5).minimize(cross_entropy)
+    train_step = tf.compat.v1.train.AdamOptimizer().minimize(cross_entropy)
 
     sess = tf.compat.v1.InteractiveSession()
     tf.compat.v1.global_variables_initializer().run()
