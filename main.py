@@ -5,11 +5,13 @@ WITH_LAYER = True
 
 
 def main():
-    T = 1
+    T = 1  # TODO consider removing it
     n_input = 784  # 28x28
     n_output = 10
     n_hidden1 = 200
     n_hidden2 = 200
+    batch_size = 50
+    training_range = 260000
     mnist = input_data.read_data_sets("MNIST_DATA", one_hot=True)
     seed_num = random.randint(1, 1000)
     if WITH_LAYER:
@@ -42,7 +44,7 @@ def main():
         y = tf.nn.relu(z/T)
 
     cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=t, logits=y))
-    train_step = tf.compat.v1.train.AdamOptimizer().minimize(cross_entropy)
+    train_step = tf.compat.v1.train.AdamOptimizer(name="Adam").minimize(cross_entropy)
 
     sess = tf.compat.v1.InteractiveSession()
     tf.compat.v1.global_variables_initializer().run()
@@ -52,13 +54,14 @@ def main():
     # for x, y in zip(batch_xsx, batch_ys):
     #    print("x= " + str(x)," y=" + str(y))
 
-    for _ in range(13000):
-        batch_xsx, batch_ts = mnist.train.next_batch(100)
-        print(sess.run([train_step, cross_entropy], feed_dict={x: batch_xsx, t: batch_ts}))
+    for _ in range(training_range):
+        batch_xsx, batch_ts = mnist.train.next_batch(batch_size=batch_size)
+        ts, ce = sess.run([train_step, cross_entropy], feed_dict={x: batch_xsx, t: batch_ts})
+        print("Cross Entropy = " + str(ce))
     correct_prediction = tf.equal(tf.math.argmax(y, 1), tf.math.argmax(t, 1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-
-    print(sess.run(accuracy, feed_dict={x: mnist.test.images, t: mnist.test.labels}))
+    print("Accuracy with training data = " + str(sess.run(accuracy, feed_dict={x: batch_xsx, t: batch_ts})))
+    print("Accuracy with test data = " + str(sess.run(accuracy, feed_dict={x: mnist.test.images, t: mnist.test.labels})))
 
 
 if __name__ == "__main__":
