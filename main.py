@@ -63,12 +63,13 @@ def logistic_regression(with_layer=False, n_input=784, n_output=10, n_hidden1=20
 
 
 def weight_variable(shape):
-    initial = tf.random.truncate(shape=shape, sttd=0.1)
+    initial = tf.random.truncated_normal(shape=shape, stddev=0.1, mean=0.0, dtype=tf.dtypes.float32,
+                                         seed=None, name="random_truncated_norm")
     return tf.Variable(initial)
 
 
 def bias_variable(shape):
-    initial = tf.constant(0.1, shape=shape)
+    initial = tf.constant(0.1, shape=shape, dtype=None, name="Const")
     return tf.Variable()
 
 
@@ -131,10 +132,9 @@ def logistic_regression_conv_layers():
     print("Test accuracy %g"% accuracy.eval(feed_dict={x: mnist.test.images, t: mnist.test, keep_prob: 0.5}))
 
 
-
 def main():
-    logistic_regression(with_layer=False)
-    logistic_regression(with_layer=True)
+    # logistic_regression(with_layer=False)
+    # logistic_regression(with_layer=True)
     logistic_regression_conv_layers()
 
 
