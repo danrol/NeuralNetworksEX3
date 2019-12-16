@@ -1,20 +1,14 @@
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 import random
-WITH_LAYER = True
+
+T = 1  # TODO consider removing it
 
 
-def main():
-    T = 1  # TODO consider removing it
-    n_input = 784  # 28x28
-    n_output = 10
-    n_hidden1 = 200
-    n_hidden2 = 200
-    batch_size = 50
-    training_range = 260000
+def logistic_regression(with_layer=False, n_input=784, n_output=10, n_hidden1=200, n_hidden2=200, training_range=13000, batch_size=50):
     mnist = input_data.read_data_sets("MNIST_DATA", one_hot=True)
     seed_num = random.randint(1, 1000)
-    if WITH_LAYER:
+    if with_layer:
         x = tf.compat.v1.placeholder(tf.float32, [None, n_input], name="Inputs")
         t = tf.compat.v1.placeholder(tf.float32, [None, n_output], name="Targets")
 
@@ -41,18 +35,13 @@ def main():
         b = tf.Variable(tf.random.uniform([n_output], -1, 1, seed=0), name="Out_biases")
 
         z = tf.add(tf.matmul(x, w), b)
-        y = tf.nn.relu(z/T)
+        y = tf.nn.relu(z / T)
 
     cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=t, logits=y))
     train_step = tf.compat.v1.train.AdamOptimizer(name="Adam").minimize(cross_entropy)
 
     sess = tf.compat.v1.InteractiveSession()
     tf.compat.v1.global_variables_initializer().run()
-
-    # batch_xsx, batch_ys = mnist.train.next_batch(batch_size=100)
-
-    # for x, y in zip(batch_xsx, batch_ys):
-    #    print("x= " + str(x)," y=" + str(y))
 
     for _ in range(training_range):
         batch_xsx, batch_ts = mnist.train.next_batch(batch_size=batch_size)
@@ -62,6 +51,65 @@ def main():
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
     print("Accuracy with training data = " + str(sess.run(accuracy, feed_dict={x: batch_xsx, t: batch_ts})))
     print("Accuracy with test data = " + str(sess.run(accuracy, feed_dict={x: mnist.test.images, t: mnist.test.labels})))
+
+
+def weight_variable(shape):
+    initial = tf.random.truncate(shape=shape, sttd=0.1)
+    return tf.Variable(initial)
+
+
+def bias_variable(shape):
+    initial = tf.constant(0.1, shape=shape)
+    return tf.Variable()
+
+
+def conv2d(x, y):
+    return tf.nn.conv2d(x, w, strides=[1, 1, 1, 1], padding='SAME')
+
+
+def max_pooling_2x2(x):
+    return tf.nn.max_pool2d(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+
+
+def logistic_regression_conv_layers():
+    x = tf.compat.v1.placeholder(tf.float32, [None, 784])
+    t = tf.compat.v1.placeholder(tf.float32, [None, 10])
+
+    w_conv1 = weight_variable([5, 5, 1, 32])  # 32 filters of 5x5x1 (x axis, y axis, dimension (greyscale is 1))
+    b_conv1 = bias_variable([32])
+
+    w_conv2 = weight_variable([5, 5, 32, 64])
+    b_conv2 = bias_variable([64])
+
+    x_image = tf.reshape(x, [-1, 28, 28, 1])
+    h_conv1 = tf.nn.relu(conv2d(x_image, w_conv1) + b_conv1)
+    h_pool1 = max_pooling_2x2(h_conv1)
+
+    h_conv2 = tf.nn.relu(conv2d(h_pool1, w_conv2) + b_conv2)
+    h_pool2 = max_pooling_2x2(h_conv2)
+
+    # Fully connected layer 1024
+    w_fc1 = weight_variable([7 * 7 * 64, 1024])
+    b_fc1 = bias_variable([1024])
+
+    h_pool2_flat = tf.reshape(h_pool2, [-1, 7 * 7 * 64])
+    h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, w_fc1) + b_fc1)
+
+    keep_prob = tf.compat.v1.placeholder(tf.float32)
+    rate = 1 - keep_prob
+    h_fc1_drop = tf.nn.dropout(h_fc1, rate=rate)
+
+    w_fc2 = weight_variable([1024, 10])
+    b_fc2 = bias_variable([10])
+    y_conv = tf.matmul(h_fc1_drop, w_fc2) + b_fc2
+
+    # continue from here (class)
+
+
+def main():
+    logistic_regression(with_layer=False)
+    logistic_regression(with_layer=True)
+    logistic_regression_conv_layers()
 
 
 if __name__ == "__main__":
