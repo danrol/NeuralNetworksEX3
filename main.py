@@ -3,7 +3,8 @@ from tensorflow.examples.tutorials.mnist import input_data
 #from functools import partial
 import random
 import logging
-
+import matplotlib.pyplot as plt
+import numpy as np
 T = 1  # TODO consider removing it
 
 mnist = input_data.read_data_sets("MNIST_DATA", one_hot=True)
@@ -15,14 +16,11 @@ def logistic_regression_with_layer(n_input=784, n_output=10, n_hidden1=200, n_hi
     logging.info("***********LOGISTIC REGRESSION WITH LAYER BEGIN***********")
     logging.info("Layer 1 size = " + str(n_hidden1) + " Layer 2 size = " + str(n_hidden2))
     seed = tf.compat.v1.set_random_seed(random.randint(1, 1000))
-
     x = tf.compat.v1.placeholder(tf.float32, [None, n_input], name="Inputs")
-
     h1 = tf.Variable(tf.random.uniform([n_input, n_hidden1], -1, 1, seed=seed), name="h1")
     b1 = tf.Variable(tf.random.uniform([1, n_hidden1], -1, 1, seed=seed), name="b1")
     h2 = tf.Variable(tf.random.uniform([n_hidden1, n_hidden2], -1, 1, seed=seed), name="h2")
     b2 = tf.Variable(tf.random.uniform([1, n_hidden2], -1, 1, seed=seed), name="b2")
-
     w = tf.Variable(tf.random.uniform([n_hidden2, n_output], -1, 1, seed=seed), name="Out_layer_w")
     b = tf.Variable(tf.random.uniform([1, n_output], -1, 1, seed=seed), name="Out_biases")
 
@@ -40,7 +38,6 @@ def logistic_regression(n_input=784, n_output=10):
     logging.info("input size = " + str(n_input) + " output size = " + str(n_output))
     seed = tf.compat.v1.set_random_seed(random.randint(1, 1000))
     x = tf.compat.v1.placeholder(tf.float32, [None, n_input], name="Inputs")
-    t = tf.compat.v1.placeholder(tf.float32, [None, n_output], name="Targets")
     w = tf.Variable(tf.random.uniform([n_input, n_output], -1, 1, seed=seed), name="Out_layer_w")
     b = tf.Variable(tf.random.uniform([n_output], -1, 1, seed=seed), name="Out_biases")
     z = tf.add(tf.matmul(x, w), b)
@@ -115,11 +112,9 @@ def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_input=78
     print("Test accuracy %g" % accuracy.eval(feed_dict={x: mnist.test.images, t: mnist.test, keep_prob: drop_rate_percent}))
 
 
-def build_train(network, n_output=10, training_range=13000, batch_size=50):
-    sess = tf.compat.v1.InteractiveSession()
+def build_train(session, network, n_output=10, training_range=13000, batch_size=50):
     x, z = network()
-    x, z = train_network(session=sess, input_x=x, output_z=z, n_output=n_output, training_range=training_range, batch_size=batch_size)
-    sess.close()
+    x, z = train_network(session=session, input_x=x, output_z=z, n_output=n_output, training_range=training_range, batch_size=batch_size)
     return x, z
 
 
@@ -139,16 +134,18 @@ def train_network(session, input_x, output_z, n_output, training_range, batch_si
 
 
 def main():
-    x, z = build_train(network=logistic_regression_with_layer)
-    x, z = build_train(network=logistic_regression)
-    #x, z = build_train(network=logistic_regression_with_layer)
-   #  #w, b, z = buildTrain(logistic_regression)
-   # # w, b, z = buildTrain(logistic_regression_with_layer)
-   # # w, b, z = buildTrain(logistic_regression_conv_layers)
-   #  # logistic_regression(with_layer=False)
-   #  # logistic_regression(with_layer=True)
-   #  #logistic_regression_conv_layers()
-   #  logistic_regression_conv_layers()
+    sess = tf.compat.v1.InteractiveSession()
+    x, z = build_train(sess, network=logistic_regression_with_layer)
+    #x, z = build_train(sess, network=logistic_regression)
+    # predict try out
+    for image in mnist.test.images:
+        print(sess.run(tf.math.argmax(z, 1), {x: [image]}))
+        first_image = image
+        first_image = np.array(image, dtype='float')
+        pixels = first_image.reshape((28, 28))
+        plt.imshow(pixels, cmap='gray')
+        plt.show()
+    sess.close()
 
 
 if __name__ == "__main__":
