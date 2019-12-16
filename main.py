@@ -7,18 +7,17 @@ T = 1  # TODO consider removing it
 
 def logistic_regression(with_layer=False, n_input=784, n_output=10, n_hidden1=200, n_hidden2=200, training_range=13000, batch_size=50):
     mnist = input_data.read_data_sets("MNIST_DATA", one_hot=True)
-    seed_num = random.randint(1, 1000)
     if with_layer:
         x = tf.compat.v1.placeholder(tf.float32, [None, n_input], name="Inputs")
         t = tf.compat.v1.placeholder(tf.float32, [None, n_output], name="Targets")
 
-        h1 = tf.Variable(tf.random.uniform([n_input, n_hidden1], -1, 1, seed=seed_num), name="h1")
-        b1 = tf.Variable(tf.random.uniform([1, n_hidden1], -1, 1, seed=seed_num), name="b1")
-        h2 = tf.Variable(tf.random.uniform([n_hidden1, n_hidden2], -1, 1, seed=seed_num), name="h2")
-        b2 = tf.Variable(tf.random.uniform([1, n_hidden2], -1, 1, seed=seed_num), name="b2")
+        h1 = tf.Variable(tf.random.uniform([n_input, n_hidden1], -1, 1), name="h1")
+        b1 = tf.Variable(tf.random.uniform([1, n_hidden1], -1, 1), name="b1")
+        h2 = tf.Variable(tf.random.uniform([n_hidden1, n_hidden2], -1, 1), name="h2")
+        b2 = tf.Variable(tf.random.uniform([1, n_hidden2], -1, 1), name="b2")
 
-        w = tf.Variable(tf.random.uniform([n_hidden2, n_output], -1, 1, seed=seed_num), name="Out_layer_w")
-        b = tf.Variable(tf.random.uniform([1, n_output], -1, 1, seed=seed_num), name="Out_biases")
+        w = tf.Variable(tf.random.uniform([n_hidden2, n_output], -1, 1), name="Out_layer_w")
+        b = tf.Variable(tf.random.uniform([1, n_output], -1, 1), name="Out_biases")
 
         h1_s = tf.add(tf.matmul(x, h1), b1)
         h1_s_rel = tf.nn.relu(h1_s / T)
@@ -31,8 +30,8 @@ def logistic_regression(with_layer=False, n_input=784, n_output=10, n_hidden1=20
         x = tf.compat.v1.placeholder(tf.float32, [None, n_input], name="Inputs")
         t = tf.compat.v1.placeholder(tf.float32, [None, n_output], name="Targets")
 
-        w = tf.Variable(tf.random.uniform([n_input, n_output], -1, 1, seed=0), name="Out_layer_w")
-        b = tf.Variable(tf.random.uniform([n_output], -1, 1, seed=0), name="Out_biases")
+        w = tf.Variable(tf.random.uniform([n_input, n_output], -1, 1), name="Out_layer_w")
+        b = tf.Variable(tf.random.uniform([n_output], -1, 1), name="Out_biases")
 
         z = tf.add(tf.matmul(x, w), b)
         y = tf.nn.relu(z / T)
@@ -47,7 +46,7 @@ def logistic_regression(with_layer=False, n_input=784, n_output=10, n_hidden1=20
         batch_xsx, batch_ts = mnist.train.next_batch(batch_size=batch_size)
         ts, ce = sess.run([train_step, cross_entropy], feed_dict={x: batch_xsx, t: batch_ts})
         print("Cross Entropy = " + str(ce))
-    correct_prediction = tf.equal(tf.math.argmax(y, 1), tf.math.argmax(t, 1))
+    correct_prediction = tf.equal(tf.math.argmax(z, 1), tf.math.argmax(t, 1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
     print("Accuracy with training data = " + str(sess.run(accuracy, feed_dict={x: batch_xsx, t: batch_ts})))
     print("Accuracy with test data = " + str(sess.run(accuracy, feed_dict={x: mnist.test.images, t: mnist.test.labels})))
