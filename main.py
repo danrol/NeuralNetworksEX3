@@ -82,12 +82,13 @@ def logistic_regression(n_input=784, n_output=10,training_range=13000, batch_siz
 
 
 def weight_variable(shape):
-    initial = tf.truncated_normal(shape=shape, stddev=0.1, dtype=tf.float32)
-    return tf.Variable(initial_value=initial, validate_shape=False)
+    initial = tf.random.truncated_normal(shape=shape, stddev=0.1, mean=0.0, dtype=tf.dtypes.float32,
+                                         seed=None, name="random_truncated_norm")
+    return tf.Variable(initial)
 
 
 def bias_variable(shape):
-    initial = tf.constant(0.1, shape=shape)
+    initial = tf.constant(0.1, shape=shape, dtype=None, name="Const")
     return tf.Variable()
 
 
@@ -150,8 +151,8 @@ def logistic_regression_conv_layers(n_input=784, n_output=10, num_filters1=32, n
 
 
 def main():
-    logistic_regression(with_layer=False)
-    logistic_regression(with_layer=True)
+    # logistic_regression(with_layer=False)
+    # logistic_regression(with_layer=True)
     logistic_regression_conv_layers()
 
 
