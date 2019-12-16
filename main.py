@@ -100,17 +100,17 @@ def max_pooling_2x2(x):
     return tf.nn.max_pool2d(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
 
-def logistic_regression_conv_layers(n_input=784, n_output=10, num_filters1=32, num_filters2=64, training_range=13000, batch_size=50):
-    x = tf.compat.v1.placeholder(tf.float32, [None, n_input])
+def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_input=784, n_output=10, num_filters1=32, num_filters2=64, drop_rate_percent=0.5, x_filter_size=5, y_filter_size=5, dimension_size=1, training_range=13000, batch_size=50):
+    x = tf.compat.v1.placeholder(tf.float32, [None, x_input_size*y_input_size])
     t = tf.compat.v1.placeholder(tf.float32, [None, n_output])
 
-    w_conv1 = weight_variable([5, 5, 1, num_filters1])  # 32 filters of 5x5x1 (x axis, y axis, dimension (greyscale is 1))
-    b_conv1 = bias_variable([32])
+    w_conv1 = weight_variable([x_filter_size, y_filter_size, dimension_size, num_filters1])  # 32 filters of 5x5x1 (x axis, y axis, dimension (greyscale is 1))
+    b_conv1 = bias_variable([num_filters1])
 
-    w_conv2 = weight_variable([5, 5, 32, num_filters2])
-    b_conv2 = bias_variable([64])
+    w_conv2 = weight_variable([x_filter_size, y_filter_size, num_filters1, num_filters2])
+    b_conv2 = bias_variable([num_filters2])
 
-    x_image = tf.reshape(x, [-1, 28, 28, 1])
+    x_image = tf.reshape(x, [-1, x_input_size, y_input_size, 1])
     h_conv1 = tf.nn.relu(conv2d(x_image, w_conv1) + b_conv1)
     h_pool1 = max_pooling_2x2(h_conv1)
 
@@ -133,7 +133,7 @@ def logistic_regression_conv_layers(n_input=784, n_output=10, num_filters1=32, n
     y_conv = tf.matmul(h_fc1_drop, w_fc2) + b_fc2
     sess = tf.compat.v1.InteractiveSession()
     tf.compat.v1.global_variables_initializer().run()
-    #Train and evaluate
+    # Train and evaluate
     mnist = input_data.read_data_sets("MNIST_DATA", one_hot=True)
     cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(
         labels=t, logits=y_conv))
@@ -141,18 +141,18 @@ def logistic_regression_conv_layers(n_input=784, n_output=10, num_filters1=32, n
     correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(t, 1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-    for i in range(20000):
-        batch = mnist.train.next_batch(50)
+    for i in range(training_range):
+        batch = mnist.train.next_batch(batch_size)
         if i % 100 == 0:
-            train_accuracy = accuracy.eval(feed_dict={x: batch[0], t: batch[1], keep_prob: 0.5})
+            train_accuracy = accuracy.eval(feed_dict={x: batch[0], t: batch[1], keep_prob: drop_rate_percent})
             print("Step %d, training accuracy %g" % (i, train_accuracy))
-        train_step.run(feed_dict={x: batch[0], t: batch[1], keep_prob: 0.5})
-    print("Test accuracy %g"% accuracy.eval(feed_dict={x: mnist.test.images, t: mnist.test, keep_prob: 0.5}))
+        train_step.run(feed_dict={x: batch[0], t: batch[1], keep_prob: drop_rate_percent})
+    print("Test accuracy %g" % accuracy.eval(feed_dict={x: mnist.test.images, t: mnist.test, keep_prob: drop_rate_percent}))
 
 
 def main():
-    # logistic_regression(with_layer=False)
-    # logistic_regression(with_layer=True)
+    logistic_regression()
+    logistic_regression_with_layer()
     logistic_regression_conv_layers()
 
 
