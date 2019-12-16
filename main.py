@@ -24,7 +24,7 @@ def logistic_regression(with_layer=False, n_input=784, n_output=10, n_hidden1=20
         h2_s = tf.add(tf.matmul(h1_s_rel, h2), b2)
         h2_s_rel = tf.nn.relu(h2_s / T)
         z = tf.add(tf.matmul(h2_s_rel, w), b)
-        y = tf.nn.relu(z / T)
+        #y = tf.nn.relu(z / T)
 
     else:
         x = tf.compat.v1.placeholder(tf.float32, [None, n_input], name="Inputs")
@@ -34,9 +34,9 @@ def logistic_regression(with_layer=False, n_input=784, n_output=10, n_hidden1=20
         b = tf.Variable(tf.random.uniform([n_output], -1, 1), name="Out_biases")
 
         z = tf.add(tf.matmul(x, w), b)
-        y = tf.nn.relu(z / T)
+        #y = tf.nn.relu(z / T)
 
-    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=t, logits=y))
+    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=t, logits=z))
     train_step = tf.compat.v1.train.AdamOptimizer(name="Adam").minimize(cross_entropy)
 
     sess = tf.compat.v1.InteractiveSession()
@@ -45,11 +45,12 @@ def logistic_regression(with_layer=False, n_input=784, n_output=10, n_hidden1=20
     for _ in range(training_range):
         batch_xsx, batch_ts = mnist.train.next_batch(batch_size=batch_size)
         ts, ce = sess.run([train_step, cross_entropy], feed_dict={x: batch_xsx, t: batch_ts})
-        print("Cross Entropy = " + str(ce))
+        #print("Cross Entropy = " + str(ce))
     correct_prediction = tf.equal(tf.math.argmax(z, 1), tf.math.argmax(t, 1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
     print("Accuracy with training data = " + str(sess.run(accuracy, feed_dict={x: batch_xsx, t: batch_ts})))
     print("Accuracy with test data = " + str(sess.run(accuracy, feed_dict={x: mnist.test.images, t: mnist.test.labels})))
+    sess.close()
 
 
 def weight_variable(shape):
@@ -108,9 +109,10 @@ def logistic_regression_conv_layers():
 def main():
     logistic_regression(with_layer=False)
     logistic_regression(with_layer=True)
-    logistic_regression_conv_layers()
+    #logistic_regression_conv_layers()
 
 
 if __name__ == "__main__":
     main()
+    InteractiveSession.close()
 

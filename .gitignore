@@ -2750,7 +2750,6 @@ venv/Lib/site-packages/tensorboard/compat/tensorflow_stub/tensor_shape.py
 venv/Lib/site-packages/tensorboard/data_compat.py
 venv/Lib/site-packages/tensorboard/default.py
 venv/Lib/site-packages/tensorboard/lazy.py
-venv/Lib/site-packages/tensorboard/main.py
 venv/Lib/site-packages/tensorboard/manager.py
 venv/Lib/site-packages/tensorboard/notebook.py
 venv/Lib/site-packages/tensorboard/plugin_util.py
