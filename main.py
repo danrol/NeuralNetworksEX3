@@ -1,5 +1,6 @@
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
+#from functools import partial
 import random
 import logging
 
@@ -10,7 +11,7 @@ T = 1  # TODO consider removing it
 
 def logistic_regression_with_layer(n_input=784, n_output=10, n_hidden1=200, n_hidden2=200, training_range=13000, batch_size=50):
     logging.info("***********LOGISTIC REGRESSION WITH LAYER BEGIN***********")
-    logging.info("layer = " + str(with_layer) + " input size = " + str(n_input) + " output size = " + str(n_output))
+    #logging.info("layer = " + str(with_layer) + " input size = " + str(n_input) + " output size = " + str(n_output))
     logging.info("Layer 1 size = " + str(n_hidden1) + " Layer 2 size = " + str(n_hidden2))
     logging.info("training range = " + str(training_range) + " batch size = " + str(batch_size))
     seed = tf.set_random_seed(random.randint(1, 1000))
@@ -32,7 +33,6 @@ def logistic_regression_with_layer(n_input=784, n_output=10, n_hidden1=200, n_hi
     h2_s = tf.add(tf.matmul(h1_s_rel, h2), b2)
     h2_s_rel = tf.nn.relu(h2_s / T)
     z = tf.add(tf.matmul(h2_s_rel, w), b)
-    # y = tf.nn.relu(z / T)
 
     cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=t, logits=z))
     train_step = tf.compat.v1.train.AdamOptimizer(name="Adam").minimize(cross_entropy)
@@ -43,12 +43,12 @@ def logistic_regression_with_layer(n_input=784, n_output=10, n_hidden1=200, n_hi
     for _ in range(training_range):
         batch_xsx, batch_ts = mnist.train.next_batch(batch_size=batch_size)
         ts, ce = sess.run([train_step, cross_entropy], feed_dict={x: batch_xsx, t: batch_ts})
-        # print("Cross Entropy = " + str(ce))
     correct_prediction = tf.equal(tf.math.argmax(z, 1), tf.math.argmax(t, 1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
     logging.info("Accuracy with training data = " + str(sess.run(accuracy, feed_dict={x: batch_xsx, t: batch_ts})))
     logging.info("Accuracy with test data = " + str(sess.run(accuracy, feed_dict={x: mnist.test.images, t: mnist.test.labels})))
     sess.close()
+    return w, b, z
 
 
 def logistic_regression(n_input=784, n_output=10,training_range=13000, batch_size=50):
@@ -62,7 +62,6 @@ def logistic_regression(n_input=784, n_output=10,training_range=13000, batch_siz
     w = tf.Variable(tf.random.uniform([n_input, n_output], -1, 1, seed=seed), name="Out_layer_w")
     b = tf.Variable(tf.random.uniform([n_output], -1, 1, seed=seed), name="Out_biases")
     z = tf.add(tf.matmul(x, w), b)
-    # y = tf.nn.relu(z / T)
 
     cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=t, logits=z))
     train_step = tf.compat.v1.train.AdamOptimizer(name="Adam").minimize(cross_entropy)
@@ -73,12 +72,12 @@ def logistic_regression(n_input=784, n_output=10,training_range=13000, batch_siz
     for _ in range(training_range):
         batch_xsx, batch_ts = mnist.train.next_batch(batch_size=batch_size)
         ts, ce = sess.run([train_step, cross_entropy], feed_dict={x: batch_xsx, t: batch_ts})
-        # print("Cross Entropy = " + str(ce))
     correct_prediction = tf.equal(tf.math.argmax(z, 1), tf.math.argmax(t, 1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
     logging.info("Accuracy with training data = " + str(sess.run(accuracy, feed_dict={x: batch_xsx, t: batch_ts})))
     logging.info("Accuracy with test data = " + str(sess.run(accuracy, feed_dict={x: mnist.test.images, t: mnist.test.labels})))
     sess.close()
+    return w, b, z
 
 
 def weight_variable(shape):
@@ -150,10 +149,17 @@ def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_input=78
     print("Test accuracy %g" % accuracy.eval(feed_dict={x: mnist.test.images, t: mnist.test, keep_prob: drop_rate_percent}))
 
 
+def buildTrain(train_func):
+    return train_func()
+
+
 def main():
-    logistic_regression()
-    logistic_regression_with_layer()
-    logistic_regression_conv_layers()
+    w, b, z = buildTrain(logistic_regression)
+    w, b, z = buildTrain(logistic_regression_with_layer)
+   # w, b, z = buildTrain(logistic_regression_conv_layers)
+    # logistic_regression(with_layer=False)
+    # logistic_regression(with_layer=True)
+    #logistic_regression_conv_layers()
 
 
 if __name__ == "__main__":
