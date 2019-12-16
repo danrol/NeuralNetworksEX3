@@ -5,6 +5,8 @@ import random
 import logging
 
 T = 1  # TODO consider removing it
+
+mnist = input_data.read_data_sets("MNIST_DATA", one_hot=True)
 # TODO measure and display training time for each architecture
 # TODO display number of weights in architecture
 
@@ -30,8 +32,6 @@ def logistic_regression_with_layer(n_input=784, n_output=10, n_hidden1=200, n_hi
     h2_s_rel = tf.nn.relu(h2_s / T)
     z = tf.add(tf.matmul(h2_s_rel, w), b)
 
-    tf.compat.v1.global_variables_initializer().run()
-
     return x, z
 
 
@@ -44,9 +44,6 @@ def logistic_regression(n_input=784, n_output=10):
     w = tf.Variable(tf.random.uniform([n_input, n_output], -1, 1, seed=seed), name="Out_layer_w")
     b = tf.Variable(tf.random.uniform([n_output], -1, 1, seed=seed), name="Out_biases")
     z = tf.add(tf.matmul(x, w), b)
-
-    tf.compat.v1.global_variables_initializer().run()
-
     return x, z
 
 
@@ -121,28 +118,28 @@ def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_input=78
 def build_train(network, n_output=10, training_range=13000, batch_size=50):
     sess = tf.compat.v1.InteractiveSession()
     x, z = network()
-    mnist = input_data.read_data_sets("MNIST_DATA", one_hot=True)
-
-    x, z = train_network(session=sess, input_x=x, output_z=z, n_output=n_output, training_range=training_range, batch_size=batch_size, data=mnist)
+    x, z = train_network(session=sess, input_x=x, output_z=z, n_output=n_output, training_range=training_range, batch_size=batch_size)
     sess.close()
     return x, z
 
 
-def train_network(session, input_x, output_z, n_output, training_range, batch_size, data):
+def train_network(session, input_x, output_z, n_output, training_range, batch_size):
     t = tf.compat.v1.placeholder(tf.float32, [None, n_output], name="Targets")
     cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=t, logits=output_z))
     train_step = tf.compat.v1.train.AdamOptimizer(name="Adam").minimize(cross_entropy)
+    tf.compat.v1.global_variables_initializer().run()
     for _ in range(training_range):
-        batch_xsx, batch_ts = data.train.next_batch(batch_size=batch_size)
+        batch_xsx, batch_ts = mnist.train.next_batch(batch_size=batch_size)
         ts, ce = session.run([train_step, cross_entropy], feed_dict={input_x: batch_xsx, t: batch_ts})
     correct_prediction = tf.equal(tf.math.argmax(output_z, 1), tf.math.argmax(t, 1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-    logging.info("Accuracy with training data = " + str(session.run(accuracy, feed_dict={input_x: batch_xsx, target_t: batch_ts})))
-    logging.info("Accuracy with test data = " + str(session.run(accuracy, feed_dict={input_x: data.test.images, target_t: data.test.labels})))
+    logging.info("Accuracy with training data = " + str(session.run(accuracy, feed_dict={input_x: batch_xsx, t: batch_ts})))
+    logging.info("Accuracy with test data = " + str(session.run(accuracy, feed_dict={input_x: mnist.test.images, t: mnist.test.labels})))
     return input_x, output_z
 
 
 def main():
+    x, z = build_train(network=logistic_regression_with_layer)
     x, z = build_train(network=logistic_regression)
     #x, z = build_train(network=logistic_regression_with_layer)
    #  #w, b, z = buildTrain(logistic_regression)
