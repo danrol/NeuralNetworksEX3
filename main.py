@@ -104,15 +104,30 @@ def logistic_regression_conv_layers():
     y_conv = tf.matmul(h_fc1_drop, w_fc2) + b_fc2
 
     # continue from here (class)
+    #Train and evaluate
+    mnist = input_data.read_data_sets("MNIST_DATA", one_hot=True)
+    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(
+        labels=t, logits=y_conv))
+    train_step = tf.train.AdadeltaOptimizer(1e-4).minimize(cross_entropy)
+    correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(t, 1))
+    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+    sess = tf.compat.v1.InteractiveSession()
+    tf.compat.v1.global_variables_initializer().run()
+    for i in range(20000):
+        batch = mnist.train.next_batch(50)
+        if i % 100 == 0:
+            train_accuracy = accuracy.eval(feed_dict={x: batch[0], t: batch[1], keep_prob: 0.5})
+            print("Step %d, training accuracy %g" % (i, train_accuracy))
+        train_step.run(feed_dict={x: batch[0], t: batch[1], keep_prob: 0.5})
+    print("Test accuracy %g"% accuracy.eval(feed_dict={x: mnist.test.images, t: mnist.test, keep_prob: 0.5}))
+
 
 
 def main():
     logistic_regression(with_layer=False)
     logistic_regression(with_layer=True)
-    #logistic_regression_conv_layers()
+    logistic_regression_conv_layers()
 
 
 if __name__ == "__main__":
     main()
-    InteractiveSession.close()
-
