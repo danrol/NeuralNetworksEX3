@@ -2,6 +2,8 @@ import logging
 # from functools import partial
 import random
 import os
+from timeit import default_timer as timer
+from datetime import timedelta
 
 import numpy as np
 import tensorflow as tf
@@ -10,6 +12,8 @@ from tensorflow.examples.tutorials.mnist import input_data
 T = 1  # TODO consider removing it
 
 mnist = input_data.read_data_sets("MNIST_DATA", one_hot=True)
+
+
 # TODO measure and display training time for each architecture
 # TODO display number of weights in architecture
 
@@ -64,8 +68,10 @@ def max_pooling_2x2(x):
     return tf.nn.max_pool2d(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
 
-def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_input=784, n_output=10, num_filters1=32, num_filters2=64, drop_rate_percent=0.5, x_filter_size=5, y_filter_size=5, dimension_size=1, training_range=13000, batch_size=50):
-    x = tf.compat.v1.placeholder(tf.float32, [None, x_input_size*y_input_size])
+def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_input=784, n_output=10, num_filters1=32, num_filters2=64, drop_rate_percent=0.5, x_filter_size=5,
+                                    y_filter_size=5, dimension_size=1, training_range=13000, batch_size=50):
+    logging.info("***********LOGISTIC REGRESSION WITH CONVOLUTION BEGIN***********")
+    x = tf.compat.v1.placeholder(tf.float32, [None, x_input_size * y_input_size])
 
     w_conv1 = weight_variable([x_filter_size, y_filter_size, dimension_size, num_filters1])  # 32 filters of 5x5x1 (x axis, y axis, dimension (greyscale is 1))
     b_conv1 = bias_variable([num_filters1])
@@ -116,6 +122,7 @@ def train_network(session, input_x, output_z, n_output, training_range, batch_si
     cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=t, logits=output_z))
     train_step = tf.compat.v1.train.AdamOptimizer(name="Adam").minimize(cross_entropy)
     tf.compat.v1.global_variables_initializer().run()
+    t1 = timer()
 
     for _ in range(training_range):
         batch_xsx, batch_ts = mnist.train.next_batch(batch_size=batch_size)
@@ -123,6 +130,8 @@ def train_network(session, input_x, output_z, n_output, training_range, batch_si
             ts, ce = session.run([train_step, cross_entropy], feed_dict={input_x: batch_xsx, t: batch_ts})
         else:
             ts, ce = session.run([train_step, cross_entropy], feed_dict={input_x: batch_xsx, t: batch_ts, keep_prob: keep_prob_val})
+    t2 = timer()
+    logging.info("Training time is : " + str(timedelta(seconds=t2 - t1)))
     correct_prediction = tf.equal(tf.math.argmax(output_z, 1), tf.math.argmax(t, 1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
@@ -130,13 +139,14 @@ def train_network(session, input_x, output_z, n_output, training_range, batch_si
         logging.info("Accuracy with training data = " + str(session.run(accuracy, feed_dict={input_x: batch_xsx, t: batch_ts})))
         logging.info("Accuracy with test data = " + str(session.run(accuracy, feed_dict={input_x: mnist.test.images, t: mnist.test.labels})))
     else:
-        logging.info("Accuracy with training data = " + str(session.run(accuracy, feed_dict={input_x: batch_xsx, t: batch_ts, keep_prob: 1})))
-        logging.info("Accuracy with test data = " + str(session.run(accuracy, feed_dict={input_x: mnist.test.images, t: mnist.test.labels, keep_prob: 1})))
+        logging.info("Accuracy with training data = " + str(session.run(accuracy, feed_dict={input_x: batch_xsx, t: batch_ts, keep_prob: keep_prob_val})))
+        logging.info("Accuracy with test data = " + str(session.run(accuracy, feed_dict={input_x: mnist.test.images, t: mnist.test.labels, keep_prob: keep_prob_val})))
 
     return input_x, output_z
 
 
 def predict(session, x, z, value, keep_prob=None):
+    # TODO
     if keep_prob is not None:
         logging.info("Predict: " + str(session.run(tf.math.argmax(z, 1), feed_dict={x: [value], keep_prob: 1})))
     else:
@@ -144,27 +154,29 @@ def predict(session, x, z, value, keep_prob=None):
 
 
 def main():
-   # os.environ['CUDA_VISIBLE_DEVICES'] = '-1' # this command forces to use CPU instead of GPU
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '-1' #  this command forces to use CPU instead of GPU
     if tf.test.gpu_device_name():
         print('GPU found')
     else:
         print("No GPU found")
-    sess = tf.compat.v1.InteractiveSession()
-    x, z, keep_prob = build_train(sess, network=logistic_regression_with_layer)
-    predict(session=sess, x=x, z=z, value=mnist.test.images[0], keep_prob=keep_prob)
-    x, z, keep_prob = build_train(sess, network=logistic_regression_conv_layers, is_conv_net=True)
-    predict(session=sess, x=x, z=z, value=mnist.test.images[0], keep_prob=keep_prob)
+    for batch_size in [50, 100]:
+        for train_range in range(13000, 20000, 1000):
+                sess = tf.compat.v1.InteractiveSession()
+                x, z, keep_prob = build_train(sess, network=logistic_regression, training_range=train_range, batch_size=batch_size)
+                predict(session=sess, x=x, z=z, value=mnist.test.images[0], keep_prob=keep_prob)
+                sess.close()
 
-    #x, z = build_train(sess, network=logistic_regression)
-    # predict try out
-    # for image in mnist.test.images:
-    #     print(sess.run(tf.math.argmax(z, 1), {x: [image]}))
-    #     first_image = image
-    #    first_image = np.array(image, dtype='float')
-    #    pixels = first_image.reshape((28, 28))
-    #    plt.imshow(pixels, cmap='gray')
-    #    plt.show()
-    sess.close()
+                sess = tf.compat.v1.InteractiveSession()
+                x, z, keep_prob = build_train(sess, network=logistic_regression_with_layer, training_range=train_range, batch_size=batch_size)
+                predict(session=sess, x=x, z=z, value=mnist.test.images[0], keep_prob=keep_prob)
+                sess.close()
+
+                for dropout in [0.5]:
+                    sess = tf.compat.v1.InteractiveSession()
+                    x, z, keep_prob = build_train(sess, network=logistic_regression_conv_layers, is_conv_net=True, training_range=train_range, batch_size=batch_size,
+                                                  keep_prob_value=dropout)
+                    predict(session=sess, x=x, z=z, value=mnist.test.images[0], keep_prob=keep_prob)
+                    sess.close()
 
 
 if __name__ == "__main__":
