@@ -1,10 +1,12 @@
+import logging
+# from functools import partial
+import random
+import os
+
+import numpy as np
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
-#from functools import partial
-import random
-import logging
-import matplotlib.pyplot as plt
-import numpy as np
+
 T = 1  # TODO consider removing it
 
 mnist = input_data.read_data_sets("MNIST_DATA", one_hot=True)
@@ -51,7 +53,7 @@ def weight_variable(shape):
 
 def bias_variable(shape):
     initial = tf.constant(0.1, shape=shape, dtype=None, name="Const")
-    return tf.Variable()
+    return tf.Variable(initial)
 
 
 def conv2d(x, w):
@@ -64,7 +66,6 @@ def max_pooling_2x2(x):
 
 def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_input=784, n_output=10, num_filters1=32, num_filters2=64, drop_rate_percent=0.5, x_filter_size=5, y_filter_size=5, dimension_size=1, training_range=13000, batch_size=50):
     x = tf.compat.v1.placeholder(tf.float32, [None, x_input_size*y_input_size])
-    t = tf.compat.v1.placeholder(tf.float32, [None, n_output])
 
     w_conv1 = weight_variable([x_filter_size, y_filter_size, dimension_size, num_filters1])  # 32 filters of 5x5x1 (x axis, y axis, dimension (greyscale is 1))
     b_conv1 = bias_variable([num_filters1])
@@ -93,58 +94,76 @@ def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_input=78
     w_fc2 = weight_variable([1024, 10])
     b_fc2 = bias_variable([10])
     y_conv = tf.matmul(h_fc1_drop, w_fc2) + b_fc2
-    sess = tf.compat.v1.InteractiveSession()
     tf.compat.v1.global_variables_initializer().run()
-    # Train and evaluate
-    mnist = input_data.read_data_sets("MNIST_DATA", one_hot=True)
-    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(
-        labels=t, logits=y_conv))
-    train_step = tf.train.AdadeltaOptimizer(1e-4).minimize(cross_entropy)
-    correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(t, 1))
-    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-
-    for i in range(training_range):
-        batch = mnist.train.next_batch(batch_size)
-        if i % 100 == 0:
-            train_accuracy = accuracy.eval(feed_dict={x: batch[0], t: batch[1], keep_prob: drop_rate_percent})
-            print("Step %d, training accuracy %g" % (i, train_accuracy))
-        train_step.run(feed_dict={x: batch[0], t: batch[1], keep_prob: drop_rate_percent})
-    print("Test accuracy %g" % accuracy.eval(feed_dict={x: mnist.test.images, t: mnist.test, keep_prob: drop_rate_percent}))
+    return x, y_conv, keep_prob
 
 
-def build_train(session, network, n_output=10, training_range=13000, batch_size=50):
-    x, z = network()
-    x, z = train_network(session=session, input_x=x, output_z=z, n_output=n_output, training_range=training_range, batch_size=batch_size)
-    return x, z
+def build_train(session, network, is_conv_net=False, n_output=10, training_range=13000, batch_size=50, keep_prob_value=0.5):
+    if is_conv_net:
+        x, z, keep_prob = network()
+        x, z = train_network(session=session, input_x=x, output_z=z, n_output=n_output, training_range=training_range, batch_size=batch_size, keep_prob=keep_prob,
+                             keep_prob_val=keep_prob_value)
+        return x, z, keep_prob
+    else:
+        x, z = network()
+        x, z = train_network(session=session, input_x=x, output_z=z, n_output=n_output, training_range=training_range,
+                             batch_size=batch_size)
+        return x, z, None
 
 
-def train_network(session, input_x, output_z, n_output, training_range, batch_size):
+def train_network(session, input_x, output_z, n_output, training_range, batch_size, keep_prob=None, keep_prob_val=1):
     t = tf.compat.v1.placeholder(tf.float32, [None, n_output], name="Targets")
     cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=t, logits=output_z))
     train_step = tf.compat.v1.train.AdamOptimizer(name="Adam").minimize(cross_entropy)
     tf.compat.v1.global_variables_initializer().run()
+
     for _ in range(training_range):
         batch_xsx, batch_ts = mnist.train.next_batch(batch_size=batch_size)
-        ts, ce = session.run([train_step, cross_entropy], feed_dict={input_x: batch_xsx, t: batch_ts})
+        if keep_prob is None:
+            ts, ce = session.run([train_step, cross_entropy], feed_dict={input_x: batch_xsx, t: batch_ts})
+        else:
+            ts, ce = session.run([train_step, cross_entropy], feed_dict={input_x: batch_xsx, t: batch_ts, keep_prob: keep_prob_val})
     correct_prediction = tf.equal(tf.math.argmax(output_z, 1), tf.math.argmax(t, 1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-    logging.info("Accuracy with training data = " + str(session.run(accuracy, feed_dict={input_x: batch_xsx, t: batch_ts})))
-    logging.info("Accuracy with test data = " + str(session.run(accuracy, feed_dict={input_x: mnist.test.images, t: mnist.test.labels})))
+
+    if keep_prob is None:
+        logging.info("Accuracy with training data = " + str(session.run(accuracy, feed_dict={input_x: batch_xsx, t: batch_ts})))
+        logging.info("Accuracy with test data = " + str(session.run(accuracy, feed_dict={input_x: mnist.test.images, t: mnist.test.labels})))
+    else:
+        logging.info("Accuracy with training data = " + str(session.run(accuracy, feed_dict={input_x: batch_xsx, t: batch_ts, keep_prob: 1})))
+        logging.info("Accuracy with test data = " + str(session.run(accuracy, feed_dict={input_x: mnist.test.images, t: mnist.test.labels, keep_prob: 1})))
+
     return input_x, output_z
 
 
+def predict(session, x, z, value, keep_prob=None):
+    if keep_prob is not None:
+        logging.info("Predict: " + str(session.run(tf.math.argmax(z, 1), feed_dict={x: [value], keep_prob: 1})))
+    else:
+        logging.info("Predict: " + str(session.run(tf.math.argmax(z, 1), feed_dict={x: [value]})))
+
+
 def main():
+   # os.environ['CUDA_VISIBLE_DEVICES'] = '-1' # this command forces to use CPU instead of GPU
+    if tf.test.gpu_device_name():
+        print('GPU found')
+    else:
+        print("No GPU found")
     sess = tf.compat.v1.InteractiveSession()
-    x, z = build_train(sess, network=logistic_regression_with_layer)
+    x, z, keep_prob = build_train(sess, network=logistic_regression_with_layer)
+    predict(session=sess, x=x, z=z, value=mnist.test.images[0], keep_prob=keep_prob)
+    x, z, keep_prob = build_train(sess, network=logistic_regression_conv_layers, is_conv_net=True)
+    predict(session=sess, x=x, z=z, value=mnist.test.images[0], keep_prob=keep_prob)
+
     #x, z = build_train(sess, network=logistic_regression)
     # predict try out
-    for image in mnist.test.images:
-        print(sess.run(tf.math.argmax(z, 1), {x: [image]}))
-        first_image = image
-        first_image = np.array(image, dtype='float')
-        pixels = first_image.reshape((28, 28))
-        plt.imshow(pixels, cmap='gray')
-        plt.show()
+    # for image in mnist.test.images:
+    #     print(sess.run(tf.math.argmax(z, 1), {x: [image]}))
+    #     first_image = image
+    #    first_image = np.array(image, dtype='float')
+    #    pixels = first_image.reshape((28, 28))
+    #    plt.imshow(pixels, cmap='gray')
+    #    plt.show()
     sess.close()
 
 
