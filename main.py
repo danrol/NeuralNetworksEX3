@@ -137,35 +137,41 @@ def train_network(session, net, training_range, batch_size, keep_prob_val=1.0):
             if accuracy >= 0.99:
                 iteration_number = _
                 t3 = timer()
+                break
     if iteration_number is not None:
         logging.info("Reached 99% accuracy within " + str(iteration_number) + " iterations and " + str(timedelta(seconds=t3 - t1)))
     t2 = timer()
     logging.info("Training time is : " + str(timedelta(seconds=t2 - t1)))
 
 
-def score(session, net, data, batch_size=1000):
-    values = predict(session=session, net=net, data=data, batch_size=batch_size)
+def score(session, net, data, printlog=False):
+    values = predict(session=session, net=net, data=data)
     y_val, t_val = np.argmax(values[0], 1), np.argmax(values[1], 1)
 
     accuracy = accuracy_score(t_val, y_val)
 
     fscore = f1_score(t_val, y_val, average="macro")
 
-    precision = precision_score(t_val, y_val, average="macro")
+    precision = precision_score(t_val, y_val, average="macro", zero_division=0)
 
     recall = recall_score(t_val, y_val, average="macro")
-
+    if printlog:
+        logging.info("Network Scores\nAccuracy: " + str(accuracy) + " Fscore: " + str(fscore) + "\nPrecision: " + str(precision) + " recall: " + str(recall))
     return [accuracy, fscore, precision, recall]
 
 
-def predict(session, net, data, batch_size=1000):
-    batch_x, batch_t = data.next_batch(batch_size=batch_size)
-
+def predict(session, net, data):
+    batch_x, batch_t = data.next_batch(10000)
+    # TODO change next batch to take the whole data
     if net[2] is None:  # check if conv net or not
         y = session.run(net[1], feed_dict={net[0]: batch_x})
     else:
         y = session.run(net[1], feed_dict={net[0]: batch_x, net[2]: 1})
     return [y, batch_t]
+
+
+def visualize():
+    pass  # TODO
 
 
 def main():
@@ -174,22 +180,38 @@ def main():
         print('GPU found')
     else:
         print("No GPU found")
-    config = tf.ConfigProto()
+    config = tf.compat.v1.ConfigProto()
     config.gpu_options.allow_growth = True
+    sess = tf.compat.v1.InteractiveSession(config=config)
+    networks = []
+    scores = []
     for batch_size in [50, 100]:
-        for train_range in range(1000, 20000, 1000):
-            sess = tf.compat.v1.InteractiveSession(config=config)
-            #net = build_train(sess, network=logistic_regression, training_range=train_range, batch_size=batch_size)
+        for train_range in [13000]:
 
-            #net = build_train(sess, network=logistic_regression_with_layer, training_range=train_range, batch_size=batch_size)
+            net = build_train(sess, network=logistic_regression, training_range=train_range, batch_size=batch_size)
+            s = score(session=sess, net=net, data=mnist.test, printlog=True)
+            # TODO send train, test and validation
+            networks.append(net)
+            scores.append(s)
 
-            for dropout in [0.5, 1]:
+            net = build_train(sess, network=logistic_regression_with_layer, training_range=train_range, batch_size=batch_size)
+            s = score(session=sess, net=net, data=mnist.test, printlog=True)
+            # TODO send train, test and validation
+            networks.append(net)
+            scores.append(s)
+
+            for dropout in [0.5]:
                 net = build_train(sess, network=logistic_regression_conv_layers, training_range=train_range, batch_size=batch_size,
                                   keep_prob_value=dropout)
-            sess.close()
+                s = score(session=sess, net=net, data=mnist.test, printlog=True)
+                # TODO send train, test and validation
+                networks.append(net)
+                scores.append(s)
+
+    sess.close()
 
 
 if __name__ == "__main__":
-    # logging.basicConfig(level=logging.INFO, filename='logger.log', filemode='w')
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO, filename='logger.log', filemode='w')
+    # logging.basicConfig(level=logging.INFO)
     main()

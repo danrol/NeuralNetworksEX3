@@ -1,25 +1,2 @@
 INFO:root:***********LOGISTIC REGRESSION BEGIN***********
-INFO:root:layer = False input size = 784 output size = 10
-INFO:root:training range = 13000 batch size = 50
-WARNING:tensorflow:From C:/Users/Asus/Documents/GitHub/NeuralNetworksEX3/main.py:17: read_data_sets (from tensorflow.contrib.learn.python.learn.datasets.mnist) is deprecated and will be removed in a future version.
-Instructions for updating:
-Please use alternatives such as official/mnist/dataset.py from tensorflow/models.
-WARNING:tensorflow:From C:\Users\Asus\.conda\envs\vroscopy2\lib\site-packages\tensorflow\contrib\learn\python\learn\datasets\mnist.py:260: maybe_download (from tensorflow.contrib.learn.python.learn.datasets.base) is deprecated and will be removed in a future version.
-Instructions for updating:
-Please write your own downloading logic.
-WARNING:tensorflow:From C:\Users\Asus\.conda\envs\vroscopy2\lib\site-packages\tensorflow\contrib\learn\python\learn\datasets\mnist.py:262: extract_images (from tensorflow.contrib.learn.python.learn.datasets.mnist) is deprecated and will be removed in a future version.
-Instructions for updating:
-Please use tf.data to implement this functionality.
-WARNING:tensorflow:From C:\Users\Asus\.conda\envs\vroscopy2\lib\site-packages\tensorflow\contrib\learn\python\learn\datasets\mnist.py:267: extract_labels (from tensorflow.contrib.learn.python.learn.datasets.mnist) is deprecated and will be removed in a future version.
-Instructions for updating:
-Please use tf.data to implement this functionality.
-WARNING:tensorflow:From C:\Users\Asus\.conda\envs\vroscopy2\lib\site-packages\tensorflow\contrib\learn\python\learn\datasets\mnist.py:110: dense_to_one_hot (from tensorflow.contrib.learn.python.learn.datasets.mnist) is deprecated and will be removed in a future version.
-Instructions for updating:
-Please use tf.one_hot on tensors.
-WARNING:tensorflow:From C:\Users\Asus\.conda\envs\vroscopy2\lib\site-packages\tensorflow\contrib\learn\python\learn\datasets\mnist.py:290: DataSet.__init__ (from tensorflow.contrib.learn.python.learn.datasets.mnist) is deprecated and will be removed in a future version.
-Instructions for updating:
-Please use alternatives such as official/mnist/dataset.py from tensorflow/models.
-INFO:root:***********LOGISTIC REGRESSION BEGIN***********
-INFO:root:layer = True input size = 784 output size = 10
-INFO:root:Layer 1 size = 200 Layer 2 size = 200
-INFO:root:training range = 13000 batch size = 50
+INFO:root:input size = 784 output size = 10
