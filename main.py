@@ -1,5 +1,9 @@
 import logging
 # from functools import partial
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import precision_score
+from sklearn.metrics import recall_score
+from sklearn.metrics import f1_score
 import random
 import os
 from timeit import default_timer as timer
@@ -142,9 +146,16 @@ def train_network(session, net, training_range, batch_size, keep_prob_val=1.0):
 def score(session, net, data, batch_size=1000):
     values = predict(session=session, net=net, data=data, batch_size=batch_size)
     y_val, t_val = np.argmax(values[0], 1), np.argmax(values[1], 1)
-    accuracy_val = np.mean(np.equal(y_val, t_val).astype(int))
 
-    return [accuracy_val]
+    accuracy = accuracy_score(t_val, y_val)
+
+    fscore = f1_score(t_val, y_val, average="macro")
+
+    precision = precision_score(t_val, y_val, average="macro")
+
+    recall = recall_score(t_val, y_val, average="macro")
+
+    return [accuracy, fscore, precision, recall]
 
 
 def predict(session, net, data, batch_size=1000):
