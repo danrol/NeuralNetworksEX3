@@ -9,12 +9,9 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
-T = 1  # TODO consider removing it
-
 mnist = input_data.read_data_sets("MNIST_DATA", one_hot=True)
 
 
-# TODO measure and display training time for each architecture
 # TODO display number of weights in architecture
 
 
@@ -23,6 +20,7 @@ def logistic_regression_with_layer(n_input=784, n_output=10, n_hidden1=200, n_hi
     logging.info("Layer 1 size = " + str(n_hidden1) + " Layer 2 size = " + str(n_hidden2))
     seed = tf.compat.v1.set_random_seed(random.randint(1, 1000))
     x = tf.compat.v1.placeholder(tf.float32, [None, n_input], name="Inputs")
+    t = tf.compat.v1.placeholder(tf.float32, [None, n_output], name="Targets")
     h1 = tf.Variable(tf.random.uniform([n_input, n_hidden1], -1, 1, seed=seed), name="h1")
     b1 = tf.Variable(tf.random.uniform([1, n_hidden1], -1, 1, seed=seed), name="b1")
     h2 = tf.Variable(tf.random.uniform([n_hidden1, n_hidden2], -1, 1, seed=seed), name="h2")
@@ -31,12 +29,12 @@ def logistic_regression_with_layer(n_input=784, n_output=10, n_hidden1=200, n_hi
     b = tf.Variable(tf.random.uniform([1, n_output], -1, 1, seed=seed), name="Out_biases")
 
     h1_s = tf.add(tf.matmul(x, h1), b1)
-    h1_s_rel = tf.nn.relu(h1_s / T)
+    h1_s_rel = tf.nn.relu(h1_s)
     h2_s = tf.add(tf.matmul(h1_s_rel, h2), b2)
-    h2_s_rel = tf.nn.relu(h2_s / T)
+    h2_s_rel = tf.nn.relu(h2_s)
     z = tf.add(tf.matmul(h2_s_rel, w), b)
 
-    return x, z
+    return [x, z, None, t, h1_s, h1_s_rel, h2_s, h2_s_rel]
 
 
 def logistic_regression(n_input=784, n_output=10):
@@ -44,10 +42,11 @@ def logistic_regression(n_input=784, n_output=10):
     logging.info("input size = " + str(n_input) + " output size = " + str(n_output))
     seed = tf.compat.v1.set_random_seed(random.randint(1, 1000))
     x = tf.compat.v1.placeholder(tf.float32, [None, n_input], name="Inputs")
+    t = tf.compat.v1.placeholder(tf.float32, [None, n_output], name="Targets")
     w = tf.Variable(tf.random.uniform([n_input, n_output], -1, 1, seed=seed), name="Out_layer_w")
     b = tf.Variable(tf.random.uniform([n_output], -1, 1, seed=seed), name="Out_biases")
     z = tf.add(tf.matmul(x, w), b)
-    return x, z
+    return [x, z, None, t]
 
 
 def weight_variable(shape):
@@ -72,7 +71,7 @@ def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_input=78
                                     y_filter_size=5, dimension_size=1, training_range=13000, batch_size=50):
     logging.info("***********LOGISTIC REGRESSION WITH CONVOLUTION BEGIN***********")
     x = tf.compat.v1.placeholder(tf.float32, [None, x_input_size * y_input_size])
-
+    t = tf.compat.v1.placeholder(tf.float32, [None, n_output], name="Targets")
     w_conv1 = weight_variable([x_filter_size, y_filter_size, dimension_size, num_filters1])  # 32 filters of 5x5x1 (x axis, y axis, dimension (greyscale is 1))
     b_conv1 = bias_variable([num_filters1])
 
@@ -80,6 +79,7 @@ def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_input=78
     b_conv2 = bias_variable([num_filters2])
 
     x_image = tf.reshape(x, [-1, x_input_size, y_input_size, 1])
+
     h_conv1 = tf.nn.relu(conv2d(x_image, w_conv1) + b_conv1)
     h_pool1 = max_pooling_2x2(h_conv1)
 
@@ -100,57 +100,61 @@ def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_input=78
     w_fc2 = weight_variable([1024, 10])
     b_fc2 = bias_variable([10])
     y_conv = tf.matmul(h_fc1_drop, w_fc2) + b_fc2
+
     tf.compat.v1.global_variables_initializer().run()
-    return x, y_conv, keep_prob
+    return [x, y_conv, keep_prob, t, h_conv1, h_pool1, h_conv2, h_pool2, h_pool2_flat, h_fc1]
 
 
-def build_train(session, network, is_conv_net=False, n_output=10, training_range=13000, batch_size=50, keep_prob_value=0.5):
-    if is_conv_net:
-        x, z, keep_prob = network()
-        x, z = train_network(session=session, input_x=x, output_z=z, n_output=n_output, training_range=training_range, batch_size=batch_size, keep_prob=keep_prob,
-                             keep_prob_val=keep_prob_value)
-        return x, z, keep_prob
-    else:
-        x, z = network()
-        x, z = train_network(session=session, input_x=x, output_z=z, n_output=n_output, training_range=training_range,
-                             batch_size=batch_size)
-        return x, z, None
+def build_train(session, network, n_output=10, training_range=13000, batch_size=50, keep_prob_value=0.5):
+    net = network()
+    train_network(session=session, net=net, training_range=training_range, batch_size=batch_size,
+                  keep_prob_val=keep_prob_value)
+    return net
 
 
-def train_network(session, input_x, output_z, n_output, training_range, batch_size, keep_prob=None, keep_prob_val=1):
-    t = tf.compat.v1.placeholder(tf.float32, [None, n_output], name="Targets")
-    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=t, logits=output_z))
+def train_network(session, net, training_range, batch_size, keep_prob_val=1.0):
+    iteration_number = None
+    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=net[3], logits=net[1]))
     train_step = tf.compat.v1.train.AdamOptimizer(name="Adam").minimize(cross_entropy)
     tf.compat.v1.global_variables_initializer().run()
     t1 = timer()
 
     for _ in range(training_range):
         batch_xsx, batch_ts = mnist.train.next_batch(batch_size=batch_size)
-        if keep_prob is None:
-            ts, ce = session.run([train_step, cross_entropy], feed_dict={input_x: batch_xsx, t: batch_ts})
+        batch_xsx_val, batch_ts_val = mnist.validation.next_batch(batch_size=batch_size)
+        if net[2] is None:
+            ts, ce = session.run([train_step, cross_entropy], feed_dict={net[0]: batch_xsx, net[3]: batch_ts})
         else:
-            ts, ce = session.run([train_step, cross_entropy], feed_dict={input_x: batch_xsx, t: batch_ts, keep_prob: keep_prob_val})
+            ts, ce = session.run([train_step, cross_entropy], feed_dict={net[0]: batch_xsx, net[3]: batch_ts, net[2]: keep_prob_val})
+
+        if iteration_number is None:
+            scores = score(session=session, net=net, data=mnist.validation)
+            accuracy = scores[0]
+            if accuracy >= 0.99:
+                iteration_number = _
+                t3 = timer()
+    if iteration_number is not None:
+        logging.info("Reached 99% accuracy within " + str(iteration_number) + " iterations and " + str(timedelta(seconds=t3 - t1)))
     t2 = timer()
     logging.info("Training time is : " + str(timedelta(seconds=t2 - t1)))
-    correct_prediction = tf.equal(tf.math.argmax(output_z, 1), tf.math.argmax(t, 1))
-    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-    if keep_prob is None:
-        logging.info("Accuracy with training data = " + str(session.run(accuracy, feed_dict={input_x: batch_xsx, t: batch_ts})))
-        logging.info("Accuracy with test data = " + str(session.run(accuracy, feed_dict={input_x: mnist.test.images, t: mnist.test.labels})))
+
+def score(session, net, data, batch_size=1000):
+    values = predict(session=session, net=net, data=data, batch_size=batch_size)
+    y_val, t_val = np.argmax(values[0], 1), np.argmax(values[1], 1)
+    accuracy_val = np.mean(np.equal(y_val, t_val).astype(int))
+
+    return [accuracy_val]
+
+
+def predict(session, net, data, batch_size=1000):
+    batch_x, batch_t = data.next_batch(batch_size=batch_size)
+
+    if net[2] is None:  # check if conv net or not
+        y = session.run(net[1], feed_dict={net[0]: batch_x})
     else:
-        logging.info("Accuracy with training data = " + str(session.run(accuracy, feed_dict={input_x: batch_xsx, t: batch_ts, keep_prob: keep_prob_val})))
-        logging.info("Accuracy with test data = " + str(session.run(accuracy, feed_dict={input_x: mnist.test.images, t: mnist.test.labels, keep_prob: keep_prob_val})))
-
-    return input_x, output_z
-
-
-def predict(session, x, z, value, keep_prob=None):
-    # TODO
-    if keep_prob is not None:
-        logging.info("Predict: " + str(session.run(tf.math.argmax(z, 1), feed_dict={x: [value], keep_prob: 1})))
-    else:
-        logging.info("Predict: " + str(session.run(tf.math.argmax(z, 1), feed_dict={x: [value]})))
+        y = session.run(net[1], feed_dict={net[0]: batch_x, net[2]: 1})
+    return [y, batch_t]
 
 
 def main():
@@ -159,24 +163,19 @@ def main():
         print('GPU found')
     else:
         print("No GPU found")
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
     for batch_size in [50, 100]:
-        for train_range in range(13000, 20000, 1000):
-                sess = tf.compat.v1.InteractiveSession()
-                x, z, keep_prob = build_train(sess, network=logistic_regression, training_range=train_range, batch_size=batch_size)
-                predict(session=sess, x=x, z=z, value=mnist.test.images[0], keep_prob=keep_prob)
-                sess.close()
+        for train_range in range(1000, 20000, 1000):
+            sess = tf.compat.v1.InteractiveSession(config=config)
+            #net = build_train(sess, network=logistic_regression, training_range=train_range, batch_size=batch_size)
 
-                sess = tf.compat.v1.InteractiveSession()
-                x, z, keep_prob = build_train(sess, network=logistic_regression_with_layer, training_range=train_range, batch_size=batch_size)
-                predict(session=sess, x=x, z=z, value=mnist.test.images[0], keep_prob=keep_prob)
-                sess.close()
+            #net = build_train(sess, network=logistic_regression_with_layer, training_range=train_range, batch_size=batch_size)
 
-                for dropout in [0.5]:
-                    sess = tf.compat.v1.InteractiveSession()
-                    x, z, keep_prob = build_train(sess, network=logistic_regression_conv_layers, is_conv_net=True, training_range=train_range, batch_size=batch_size,
-                                                  keep_prob_value=dropout)
-                    predict(session=sess, x=x, z=z, value=mnist.test.images[0], keep_prob=keep_prob)
-                    sess.close()
+            for dropout in [0.5, 1]:
+                net = build_train(sess, network=logistic_regression_conv_layers, training_range=train_range, batch_size=batch_size,
+                                  keep_prob_value=dropout)
+            sess.close()
 
 
 if __name__ == "__main__":
