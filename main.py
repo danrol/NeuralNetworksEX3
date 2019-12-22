@@ -5,7 +5,6 @@ from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 from sklearn.metrics import f1_score
 import random
-from enum import Enum
 import os
 from timeit import default_timer as timer
 from datetime import timedelta
@@ -21,9 +20,9 @@ mnist = input_data.read_data_sets("MNIST_DATA", one_hot=True)
 
 
 def main():
-    #logging.basicConfig(level=logging.INFO, filename='logger.log', filemode='w')
+    # logging.basicConfig(level=logging.INFO, filename='logger.log', filemode='w')
     logging.basicConfig(level=logging.INFO)
-    #os.environ['CUDA_VISIBLE_DEVICES'] = '-1' #  this command forces to use CPU instead of GPU
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '-1' #  this command forces to use CPU instead of GPU
     if tf.test.gpu_device_name():
         print('GPU found')
     else:
@@ -31,26 +30,25 @@ def main():
     config = tf.compat.v1.ConfigProto()
     config.gpu_options.allow_growth = True
     sess = tf.compat.v1.InteractiveSession(config=config)
-    
+
     networks = []
+    # the following for loops set the network type and other parameters
     for batch_size in [10, 50, 100]:
         for train_range in [100, 13000]:
             net = Network(session=sess, network_type=logistic_regression, batch_size=batch_size, num_iterations=train_range)
             networks.append(net)
-            #net = build_train(sess, network=logistic_regression, training_range=train_range, batch_size=batch_size)
-            #s = score(session=sess, net=net, data=mnist.test, printlog=True)
-            # TODO send train, test and validation
-            #
-            # net = build_train(sess, network=logistic_regression_with_layer, training_range=train_range, batch_size=batch_size)
-            # s = score(session=sess, net=net, data=mnist.test, printlog=True)
-            # # TODO send train, test and validation
-            #
-            # for dropout in [0.5]:
-            #     net = build_train(sess, network=logistic_regression_conv_layers, training_range=train_range, batch_size=batch_size,
-            #                       keep_prob_value=dropout)
-            #     s = score(session=sess, net=net, data=mnist.test, printlog=True)
-            #     # TODO send train, test and validation
 
+            net = Network(session=sess, network_type=logistic_regression_with_layer, batch_size=batch_size, num_iterations=train_range)
+            networks.append(net)
+
+            for dropout in [0.5]:
+                net = Network(session=sess, network_type=logistic_regression_conv_layers, batch_size=batch_size, num_iterations=train_range, keep_probability_value=dropout)
+                networks.append(net)
+
+    # begin training networks - run performs buildTrain, predict, score and visualize
+    for network in networks:
+        network.run()
+        logging.info(network.scores_str())
     sess.close()
 
 
@@ -76,11 +74,12 @@ class Network:
     # scores for data will be kept in the following order:
     # fscore, accuracy, recall, precision = ['train', 'validation', 'test']
     class DataType:
+        Names = ["TRAIN", "VALIDATION", "TEST"]
         TRAIN = 0
         VALIDATION = 1
         TEST = 2
 
-    def __init__(self, session, network_type, batch_size=100, num_iterations=13000):
+    def __init__(self, session, network_type, batch_size=100, num_iterations=13000, keep_probability_value=0.5):
         """
         :type session: tensorflow session object
         :type network_type: network creator function pointer
@@ -89,7 +88,7 @@ class Network:
         self.accuracy = [0, 0, 0]
         self.recall = [0, 0, 0]
         self.precision = [0, 0, 0]
-        self.keep_probability_value = None
+        self.keep_probability_value = keep_probability_value
         self.x_placeholder = None
         self.z_variables = None
         self.keep_prob_placeholder = None
@@ -99,20 +98,26 @@ class Network:
         self.num_iterations = num_iterations
         self.net_type = network_type
         self.net = None
-        self.net_dict = None
+        self.train_time = timedelta(seconds=0)
+
+    def run(self):
         self.build_train()
+        self.test_all_scores()
+        self.visualize()
 
     def build_train(self):
-        self.net = self.net_type()
+        self.net = self.net_type()  # create network
+
         self.x_placeholder = self.net[0]
         self.z_variables = self.net[1]
         self.keep_prob_placeholder = self.net[2]
         self.target_placeholder = self.net[3]
-        self.train_network()
 
-    def score(self, data, data_type_enum, printlog=False):
-        values = self.predict(data=data)
-        y_val, t_val = np.argmax(values[0], 1), np.argmax(values[1], 1)
+        self.train_network()
+        logging.info(str(self))
+
+    def score(self, y_values, t_values, data_type_enum, printlog=False):
+        y_val, t_val = np.argmax(y_values, 1), np.argmax(t_values, 1)
 
         self.accuracy[data_type_enum] = accuracy_score(t_val, y_val)
 
@@ -120,28 +125,54 @@ class Network:
 
         self.precision[data_type_enum] = precision_score(t_val, y_val, average="macro", zero_division=0)
 
-        self.recall[data_type_enum] = recall_score(t_val, y_val, average="macro")
+        self.recall[data_type_enum] = recall_score(t_val, y_val, average="macro", zero_division=0)
         if printlog:
-            self.print_scores(data_type_enum)
+            logging.info(self.scores_str(data_type_enum))
+
+    def test_all_scores(self):
+        logging.debug("test_all_scores begin")
+
+        y_values, t_values = self.predict(data=mnist.train, use_batch=True)
+        self.score(y_values, t_values, Network.DataType.TRAIN)
+
+        y_values, t_values = self.predict(data=mnist.validation, use_batch=True)
+        self.score(y_values, t_values, Network.DataType.VALIDATION)
+
+        y_values, t_values = self.predict(data=mnist.test, use_batch=True)
+        self.score(y_values, t_values, Network.DataType.TEST)
+        logging.debug("test_all_scores end")
 
     def predict(self, data, use_batch=False):
-        # if use_batch:
-        batch_x, batch_t = data.next_batch(10000)
-        # TODO change next batch to take the whole data
+        if use_batch:
+            batch_x, batch_t = data.next_batch(self.batch_size)
+        else:
+            batch_x, batch_t = data.images, data.labels  # use whole database
+
         if self.keep_prob_placeholder is None:  # check if conv net or not
             y = self.session.run(self.net[1], feed_dict={self.x_placeholder: batch_x})
         else:
             y = self.session.run(self.net[1], feed_dict={self.x_placeholder: batch_x, self.keep_prob_placeholder: 1})
-        return [y, batch_t]
+        return y, batch_t
 
-    def print_scores(self, data_type_enum=None):
+    def scores_str(self, data_type_enum=None):
+        s = ""
         if data_type_enum is not None:
-            logging.info("Network Scores\nAccuracy: " + str(self.accuracy[data_type_enum]) + " Fscore: " + str(self.fscore[data_type_enum]) + "\nPrecision: " + str(self.precision[data_type_enum])
-                       + " recall: " + str(self.recall[data_type_enum]))
+            if data_type_enum == Network.DataType.TRAIN:
+                s = s + "\n"
+            s = s + " - " + Network.DataType.Names[data_type_enum] + ": "
+            s = s + "Network Scores\n\tAccuracy: " + str(self.accuracy[data_type_enum]) + " Fscore: " + str(self.fscore[data_type_enum]) + "\n\tPrecision: " + str(self.precision[
+                                                                                                                                                                       data_type_enum]) \
+                + " recall: " + str(self.recall[data_type_enum]) + "\n"
         else:
-            self.print_scores(Network.DataType.TRAIN)
-            self.print_scores(Network.DataType.VALIDATION)
-            self.print_scores(Network.DataType.TEST)
+            s = self.scores_str(Network.DataType.TRAIN)
+            s = s + (self.scores_str(Network.DataType.VALIDATION))
+            s = s + (self.scores_str(Network.DataType.TEST))
+        return s
+
+    def __str__(self):
+        s = "Batch_size=" + str(self.batch_size) + " Num training iterations=" + str(self.num_iterations) + " dropout_rate=" + str(self.keep_probability_value)
+        s = s + "\n\t\tTraining time is : " + str(self.train_time)
+        return s
 
     def visualize(self):
         pass  # TODO
@@ -158,11 +189,11 @@ class Network:
             if self.keep_prob_placeholder is None:
                 ts, ce = self.session.run([train_step, cross_entropy], feed_dict={self.x_placeholder: batch_xsx, self.target_placeholder: batch_ts})
             else:
-                ts, ce = self.session.run([train_step, cross_entropy], feed_dict={self.x_placeholder: batch_xsx, self.target_placeholder: batch_ts, self.keep_prob_placeholder:
-                    self.keep_probability_value})
+                ts, ce = self.session.run([train_step, cross_entropy], feed_dict={self.x_placeholder: batch_xsx, self.target_placeholder: batch_ts, self.keep_prob_placeholder: self.keep_probability_value})
 
             if iteration_number_for_target_accuracy is None:
-                self.score(data=mnist.validation, data_type_enum=Network.DataType.VALIDATION, printlog=True)
+                y_values, t_values = self.predict(data=mnist.validation, use_batch=True)
+                self.score(y_values, t_values, Network.DataType.VALIDATION)
                 if self.accuracy[Network.DataType.VALIDATION] >= 0.99:
                     iteration_number_for_target_accuracy = _
                     t3 = timer()
@@ -170,11 +201,12 @@ class Network:
         if iteration_number_for_target_accuracy is not None:
             logging.info("Reached 99% accuracy within " + str(iteration_number_for_target_accuracy) + " iterations and " + str(timedelta(seconds=t3 - t1)))
         t2 = timer()
-        logging.info("Training time is : " + str(timedelta(seconds=t2 - t1)))
+        self.train_time = timedelta(seconds=t2 - t1)
+        logging.info("Training time is : " + str(self.train_time))
 
 
 def logistic_regression_with_layer(n_input=784, n_output=10, n_hidden1=200, n_hidden2=200):
-    logging.info("***********LOGISTIC REGRESSION WITH LAYER BEGIN***********")
+    logging.info("***********LOGISTIC REGRESSION WITH LAYER***********")
     logging.info("Layer 1 size = " + str(n_hidden1) + " Layer 2 size = " + str(n_hidden2))
     seed = tf.compat.v1.set_random_seed(random.randint(1, 1000))
     x = tf.compat.v1.placeholder(tf.float32, [None, n_input], name="Inputs")
@@ -196,7 +228,7 @@ def logistic_regression_with_layer(n_input=784, n_output=10, n_hidden1=200, n_hi
 
 
 def logistic_regression(n_input=784, n_output=10):
-    logging.info("***********LOGISTIC REGRESSION BEGIN***********")
+    logging.info("***********LOGISTIC REGRESSION***********")
     logging.info("input size = " + str(n_input) + " output size = " + str(n_output))
     seed = tf.compat.v1.set_random_seed(random.randint(1, 1000))
     x = tf.compat.v1.placeholder(tf.float32, [None, n_input], name="Inputs")
@@ -209,7 +241,7 @@ def logistic_regression(n_input=784, n_output=10):
 
 def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_input=784, n_output=10, num_filters1=32, num_filters2=64, drop_rate_percent=0.5, x_filter_size=5,
                                     y_filter_size=5, dimension_size=1, training_range=13000, batch_size=50):
-    logging.info("***********LOGISTIC REGRESSION WITH CONVOLUTION BEGIN***********")
+    logging.info("***********LOGISTIC REGRESSION WITH CONVOLUTION***********")
     x = tf.compat.v1.placeholder(tf.float32, [None, x_input_size * y_input_size])
     t = tf.compat.v1.placeholder(tf.float32, [None, n_output], name="Targets")
     w_conv1 = weight_variable([x_filter_size, y_filter_size, dimension_size, num_filters1])  # 32 filters of 5x5x1 (x axis, y axis, dimension (greyscale is 1))
