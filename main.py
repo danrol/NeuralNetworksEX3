@@ -18,8 +18,7 @@ mnist = input_data.read_data_sets("MNIST_DATA", one_hot=True)
 
 
 # TODO display number of weights in architecture
-
-
+# TODO put sample image as the id check number
 def main():
     # logging.basicConfig(level=logging.INFO, filename='logger.log', filemode='w')
     logging.basicConfig(level=logging.INFO)
@@ -41,22 +40,24 @@ def main():
 
     image = mnist.test.images[0]
     for net_index in range(5):  # print image for 5 networks with best fscores
-        if net_index < (len(networks)-1):
-            networks[net_index].visualize(image=image, layer_num=2, channel_num=2, before_activation=True)
+        if net_index <= (len(networks) - 1):
+            networks[net_index].visualize(image=image, layer_num=0, channel_num=2, before_activation=True)
     sess.close()
 
 
 def create_networks(session):
     networks = []
     # the following for loops set the network type and other parameters
-    for batch_size in [10, 50, 100]:
-        for train_range in [100, 13000]:
-            net = Network(session=session, network_type=logistic_regression, batch_size=batch_size, num_iterations=train_range)
-            networks.append(net)
+    for batch_size in [10]:
+        # for batch_size in [50, 100]:
+        # for train_range in [13000]:
+        for train_range in [100]:
+            # net = Network(session=session, network_type=logistic_regression, batch_size=batch_size, num_iterations=train_range)
+            # networks.append(net)
 
-            net = Network(session=session, network_type=logistic_regression_with_layer, batch_size=batch_size, num_iterations=train_range)
-            networks.append(net)
-
+            # net = Network(session=session, network_type=logistic_regression_with_layer, batch_size=batch_size, num_iterations=train_range)
+            # networks.append(net)
+            #
             for dropout in [0.5]:
                 net = Network(session=session, network_type=logistic_regression_conv_layers, batch_size=batch_size, num_iterations=train_range, keep_probability_value=dropout)
                 networks.append(net)
@@ -65,9 +66,9 @@ def create_networks(session):
 
 def sort_by_fscore(networks):
     for i in range(len(networks)):
-        for j in range(len(networks)-1):
-            if networks[j] < networks[j+1]:
-                networks[j], networks[j+1] = networks[j+1], networks[j]
+        for j in range(len(networks) - 1):
+            if networks[j] < networks[j + 1]:
+                networks[j], networks[j + 1] = networks[j + 1], networks[j]
 
 
 def weight_variable(shape):
@@ -80,12 +81,12 @@ def bias_variable(shape):
     return tf.Variable(initial)
 
 
-def conv2d(x, w):
-    return tf.nn.conv2d(x, w, strides=[1, 1, 1, 1], padding='SAME')
+def conv2d(x, w, padding='SAME'):
+    return tf.nn.conv2d(x, w, strides=[1, 1, 1, 1], padding=padding)
 
 
-def max_pooling_2x2(x):
-    return tf.nn.max_pool2d(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+def max_pooling_2x2(x, padding='SAME'):
+    return tf.nn.max_pool2d(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding=padding)
 
 
 class Network:
@@ -117,11 +118,13 @@ class Network:
         self.net_type = network_type
         self.net = None
         self.train_time = timedelta(seconds=0)
+        self.num_weights_in_net = None
+        self.net_parameters = None
+        self.is_conv_net = False
 
     def run(self):
         self.build_train()
         self.test_all_scores()
-        self.visualize()
 
     def build_train(self):
         self.net = self.net_type()  # create network
@@ -130,6 +133,12 @@ class Network:
         self.z_variables = self.net[1]
         self.keep_prob_placeholder = self.net[2]
         self.target_placeholder = self.net[3]
+
+        self.net_parameters = self.net[4]
+
+        self.num_weights_in_net = self.net_parameters[4]
+        if self.keep_prob_placeholder is not None:
+            self.is_conv_net = True
 
         self.train_network()
         logging.info(str(self))
@@ -141,9 +150,11 @@ class Network:
 
         self.fscore[data_type_enum] = f1_score(t_val, y_val, average="macro")
 
-        self.precision[data_type_enum] = precision_score(t_val, y_val, average="macro", zero_division=0)
+        self.precision[data_type_enum] = precision_score(t_val, y_val, average="macro")
+        # self.precision[data_type_enum] = precision_score(t_val, y_val, average="macro", zero_division=0)
 
-        self.recall[data_type_enum] = recall_score(t_val, y_val, average="macro", zero_division=0)
+        self.recall[data_type_enum] = recall_score(t_val, y_val, average="macro")
+        # self.recall[data_type_enum] = recall_score(t_val, y_val, average="macro", zero_division=0)
         if printlog:
             logging.info(self.scores_str(data_type_enum))
 
@@ -192,12 +203,29 @@ class Network:
         s = s + "\n\t\tTraining time is : " + str(self.train_time)
         return s
 
-    def visualize(self, image, layer_num, channel_num, before_activation=True):
-        # first_image = np.array(image, dtype='float')
-        # pixels = first_image.reshape((28, 28))
-        # plt.imshow(pixels, cmap='gray')
-        # plt.show()
-        pass
+    def visualize(self, image, layer_num, channel_num, before_activation=False):
+        if layer_num != 0:
+            conv_layer = self.net[layer_num + 4]
+            if before_activation:
+                the_layer = conv_layer[0]
+            else:
+                the_layer = conv_layer[1]
+            z, layer = self.session.run([self.z_variables, the_layer], {self.x_placeholder: [image], self.keep_prob_placeholder: 1})
+            num_filters = conv_layer[4]
+            x_size = conv_layer[2]
+            y_size = conv_layer[3]
+            first_image = np.transpose(np.array(layer[0], dtype='float').reshape((x_size*y_size, num_filters)))  # 28x28, filter size
+            # change this according to picture size and filter size in layer
+            pixels = first_image[channel_num].reshape((x_size, y_size))
+
+        else:  # print the input
+            first_image = np.array(image, dtype='float')  # 28x28, filter size
+            x_size = self.net_parameters[0]
+            y_size = self.net_parameters[1]
+            pixels = first_image.reshape((x_size, y_size))
+
+        plt.imshow(pixels, cmap='gray')
+        plt.show()
 
     def train_network(self):
         iteration_number_for_target_accuracy = None
@@ -211,7 +239,8 @@ class Network:
             if self.keep_prob_placeholder is None:
                 ts, ce = self.session.run([train_step, cross_entropy], feed_dict={self.x_placeholder: batch_xsx, self.target_placeholder: batch_ts})
             else:
-                ts, ce = self.session.run([train_step, cross_entropy], feed_dict={self.x_placeholder: batch_xsx, self.target_placeholder: batch_ts, self.keep_prob_placeholder: self.keep_probability_value})
+                ts, ce = self.session.run([train_step, cross_entropy],
+                                          feed_dict={self.x_placeholder: batch_xsx, self.target_placeholder: batch_ts, self.keep_prob_placeholder: self.keep_probability_value})
 
             if iteration_number_for_target_accuracy is None:
                 y_values, t_values = self.predict(data=mnist.validation, use_batch=True)
@@ -249,7 +278,9 @@ def logistic_regression_with_layer(n_input=784, n_output=10, n_hidden1=200, n_hi
     return [x, z, None, t, h1_s, h1_s_rel, h2_s, h2_s_rel]
 
 
-def logistic_regression(n_input=784, n_output=10):
+def logistic_regression(x_input_size=28, y_input_size=28, n_output=10):
+    n_input = x_input_size*y_input_size
+    num_weights_in_net = n_input*n_output + n_output
     logging.info("***********LOGISTIC REGRESSION***********")
     logging.info("input size = " + str(n_input) + " output size = " + str(n_output))
     seed = tf.compat.v1.set_random_seed(random.randint(1, 1000))
@@ -258,12 +289,17 @@ def logistic_regression(n_input=784, n_output=10):
     w = tf.Variable(tf.random.uniform([n_input, n_output], -1, 1, seed=seed), name="Out_layer_w")
     b = tf.Variable(tf.random.uniform([n_output], -1, 1, seed=seed), name="Out_biases")
     z = tf.add(tf.matmul(x, w), b)
-    return [x, z, None, t]
+
+    net_parameters = [x_input_size, y_input_size, n_output, [], num_weights_in_net]
+    return [x, z, None, t, net_parameters]
 
 
-def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_input=784, n_output=10, num_filters1=32, num_filters2=64, drop_rate_percent=0.5, x_filter_size=5,
-                                    y_filter_size=5, dimension_size=1, training_range=13000, batch_size=50):
+def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_output=10, num_filters1=32, num_filters2=64, drop_rate_percent=0.5, x_filter_size=5,
+                                    y_filter_size=5, dimension_size=1, hidden_layer_size=1024):
     logging.info("***********LOGISTIC REGRESSION WITH CONVOLUTION***********")
+    num_weights_in_net = dimension_size * x_filter_size * y_filter_size * (num_filters1 + 1)
+    num_weights_in_net += x_filter_size * y_filter_size * num_filters1 * (num_filters2 + 1)
+
     x = tf.compat.v1.placeholder(tf.float32, [None, x_input_size * y_input_size])
     t = tf.compat.v1.placeholder(tf.float32, [None, n_output], name="Targets")
     w_conv1 = weight_variable([x_filter_size, y_filter_size, dimension_size, num_filters1])  # 32 filters of 5x5x1 (x axis, y axis, dimension (greyscale is 1))
@@ -281,22 +317,31 @@ def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_input=78
     h_pool2 = max_pooling_2x2(h_conv2_relu)
 
     # Fully connected layer 1024
-    w_fc1 = weight_variable([7 * 7 * 64, 1024])
-    b_fc1 = bias_variable([1024])
+    x_size_after_pool1 = int(x_input_size / 2)
+    y_size_after_pool1 = int(y_input_size / 2)
 
-    h_pool2_flat = tf.reshape(h_pool2, [-1, 7 * 7 * 64])
+    x_size_after_pool2 = int(x_input_size / 4)
+    y_size_after_pool2 = int(y_input_size / 4)
+
+    w_fc1 = weight_variable([x_size_after_pool2*y_size_after_pool2*num_filters2, hidden_layer_size])
+    b_fc1 = bias_variable([hidden_layer_size])
+
+    h_pool2_flat = tf.reshape(h_pool2, [-1, x_size_after_pool2 * y_size_after_pool2 * num_filters2])
     h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, w_fc1) + b_fc1)
 
     keep_prob = tf.compat.v1.placeholder(tf.float32)
     rate = 1 - keep_prob
     h_fc1_drop = tf.nn.dropout(h_fc1, rate=rate)
 
-    w_fc2 = weight_variable([1024, 10])
-    b_fc2 = bias_variable([10])
+    w_fc2 = weight_variable([hidden_layer_size, n_output])
+    b_fc2 = bias_variable([n_output])
     y_conv = tf.matmul(h_fc1_drop, w_fc2) + b_fc2
 
     tf.compat.v1.global_variables_initializer().run()
-    return [x, y_conv, keep_prob, t, h_conv1, h_conv1_relu, h_pool1, h_conv2, h_conv2_relu, h_pool2, h_pool2_flat, h_fc1]
+    #   [x_size, y_size, output_size, ['hidden layer size'...], num_weights_in_net]
+    net_parameters = [x_input_size, y_input_size, n_output, [hidden_layer_size], num_weights_in_net]
+    return [x, y_conv, keep_prob, t, net_parameters, [h_conv1, h_conv1_relu, x_input_size, y_input_size, num_filters1],
+            [h_conv2, h_conv2_relu, x_size_after_pool1, y_size_after_pool1, num_filters2]]
 
 
 if __name__ == "__main__":
