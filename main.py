@@ -50,7 +50,19 @@ def main():
     for network in networks:
         network.run()
         logging.info(network.scores_str())
+    sort_by_fscore(networks)
+    
+    image = mnist.test.images[0]
+    for net_index in range(5):  # print image for 5 networks with best fscores
+        networks[net_index].visualize(image=image,layer_num=2, channel_num=2, before_activation=True)
     sess.close()
+
+
+def sort_by_fscore(networks):
+    for i in range(len(networks)):
+        for j in range(len(networks)-1):
+            if networks[j] < networks[j+1]:
+                networks[j], networks[j+1] = networks[j+1], networks[j]
 
 
 def weight_variable(shape):
@@ -180,6 +192,7 @@ class Network:
         # pixels = first_image.reshape((28, 28))
         # plt.imshow(pixels, cmap='gray')
         # plt.show()
+        pass
 
     def train_network(self):
         iteration_number_for_target_accuracy = None
@@ -255,12 +268,12 @@ def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_input=78
     b_conv2 = bias_variable([num_filters2])
 
     x_image = tf.reshape(x, [-1, x_input_size, y_input_size, 1])
-
-    h_conv1 = tf.nn.relu(conv2d(x_image, w_conv1) + b_conv1)
-    h_pool1 = max_pooling_2x2(h_conv1)
-
-    h_conv2 = tf.nn.relu(conv2d(h_pool1, w_conv2) + b_conv2)
-    h_pool2 = max_pooling_2x2(h_conv2)
+    h_conv1 = conv2d(x_image, w_conv1) + b_conv1
+    h_conv1_relu = tf.nn.relu(h_conv1)
+    h_pool1 = max_pooling_2x2(h_conv1_relu)
+    h_conv2 = conv2d(h_pool1, w_conv2) + b_conv2
+    h_conv2_relu = tf.nn.relu(h_conv2)
+    h_pool2 = max_pooling_2x2(h_conv2_relu)
 
     # Fully connected layer 1024
     w_fc1 = weight_variable([7 * 7 * 64, 1024])
@@ -278,7 +291,7 @@ def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_input=78
     y_conv = tf.matmul(h_fc1_drop, w_fc2) + b_fc2
 
     tf.compat.v1.global_variables_initializer().run()
-    return [x, y_conv, keep_prob, t, h_conv1, h_pool1, h_conv2, h_pool2, h_pool2_flat, h_fc1]
+    return [x, y_conv, keep_prob, t, h_conv1, h_conv1_relu, h_pool1, h_conv2, h_conv2_relu, h_pool2, h_pool2_flat, h_fc1]
 
 
 if __name__ == "__main__":
