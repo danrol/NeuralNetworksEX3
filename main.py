@@ -32,7 +32,7 @@ def main():
     config.gpu_options.allow_growth = True
     sess = tf.compat.v1.InteractiveSession(config=config)
 
-    networks = create_networks()
+    networks = create_networks(session=sess)
     # begin training networks - run performs buildTrain, predict, score and visualize
     for network in networks:
         network.run()
@@ -46,19 +46,19 @@ def main():
     sess.close()
 
 
-def create_networks():
+def create_networks(session):
     networks = []
     # the following for loops set the network type and other parameters
     for batch_size in [10, 50, 100]:
         for train_range in [100, 13000]:
-            net = Network(session=sess, network_type=logistic_regression, batch_size=batch_size, num_iterations=train_range)
+            net = Network(session=session, network_type=logistic_regression, batch_size=batch_size, num_iterations=train_range)
             networks.append(net)
 
-            net = Network(session=sess, network_type=logistic_regression_with_layer, batch_size=batch_size, num_iterations=train_range)
+            net = Network(session=session, network_type=logistic_regression_with_layer, batch_size=batch_size, num_iterations=train_range)
             networks.append(net)
 
             for dropout in [0.5]:
-                net = Network(session=sess, network_type=logistic_regression_conv_layers, batch_size=batch_size, num_iterations=train_range, keep_probability_value=dropout)
+                net = Network(session=session, network_type=logistic_regression_conv_layers, batch_size=batch_size, num_iterations=train_range, keep_probability_value=dropout)
                 networks.append(net)
     return networks
 
