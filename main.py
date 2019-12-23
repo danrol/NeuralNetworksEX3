@@ -51,10 +51,11 @@ def main():
         network.run()
         logging.info(network.scores_str())
     sort_by_fscore(networks)
-    
+
     image = mnist.test.images[0]
     for net_index in range(5):  # print image for 5 networks with best fscores
-        networks[net_index].visualize(image=image,layer_num=2, channel_num=2, before_activation=True)
+        if net_index < (len(networks)-1):
+            networks[net_index].visualize(image=image,layer_num=2, channel_num=2, before_activation=True)
     sess.close()
 
 
