@@ -6,6 +6,7 @@ from sklearn.metrics import recall_score
 from sklearn.metrics import f1_score
 import random
 import os
+import matplotlib.pyplot as plt
 from timeit import default_timer as timer
 from datetime import timedelta
 
@@ -174,8 +175,11 @@ class Network:
         s = s + "\n\t\tTraining time is : " + str(self.train_time)
         return s
 
-    def visualize(self):
-        pass  # TODO
+    def visualize(self, image, layer_num, channel_num, before_activation=True):
+        # first_image = np.array(image, dtype='float')
+        # pixels = first_image.reshape((28, 28))
+        # plt.imshow(pixels, cmap='gray')
+        # plt.show()
 
     def train_network(self):
         iteration_number_for_target_accuracy = None
