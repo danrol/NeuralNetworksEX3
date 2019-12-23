@@ -32,6 +32,21 @@ def main():
     config.gpu_options.allow_growth = True
     sess = tf.compat.v1.InteractiveSession(config=config)
 
+    networks = create_networks()
+    # begin training networks - run performs buildTrain, predict, score and visualize
+    for network in networks:
+        network.run()
+        logging.info(network.scores_str())
+    sort_by_fscore(networks)
+
+    image = mnist.test.images[0]
+    for net_index in range(5):  # print image for 5 networks with best fscores
+        if net_index < (len(networks)-1):
+            networks[net_index].visualize(image=image, layer_num=2, channel_num=2, before_activation=True)
+    sess.close()
+
+
+def create_networks():
     networks = []
     # the following for loops set the network type and other parameters
     for batch_size in [10, 50, 100]:
@@ -45,18 +60,7 @@ def main():
             for dropout in [0.5]:
                 net = Network(session=sess, network_type=logistic_regression_conv_layers, batch_size=batch_size, num_iterations=train_range, keep_probability_value=dropout)
                 networks.append(net)
-
-    # begin training networks - run performs buildTrain, predict, score and visualize
-    for network in networks:
-        network.run()
-        logging.info(network.scores_str())
-    sort_by_fscore(networks)
-
-    image = mnist.test.images[0]
-    for net_index in range(5):  # print image for 5 networks with best fscores
-        if net_index < (len(networks)-1):
-            networks[net_index].visualize(image=image,layer_num=2, channel_num=2, before_activation=True)
-    sess.close()
+    return networks
 
 
 def sort_by_fscore(networks):
