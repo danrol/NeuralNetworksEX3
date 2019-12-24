@@ -38,13 +38,13 @@ def main():
         image = mnist.test.images[i]
         if val == 6:
             break
-        for net_index in range(5):  # print image for 5 networks with best fscores
-            for layer_num in [1, 2]:
-                for channel_num in [0]:
-                    for activation in [True, False]:
-                        if net_index <= (len(networks) - 1):
-                            logging.info("Printing net with fscore value = " + str(networks[net_index].fscore[2]))
-                            networks[net_index].visualize(image=image, layer_num=layer_num, channel_num=channel_num, before_activation=activation)
+    for net_index in range(5):  # print image for 5 networks with best fscores
+        for layer_num in [1, 2]:
+            for channel_num in [0]:
+                for activation in [True, False]:
+                    if net_index <= (len(networks) - 1):
+                        logging.info("Printing net with fscore value = " + str(networks[net_index].fscore[2]))
+                        networks[net_index].visualize(image=image, layer_num=layer_num, channel_num=channel_num, before_activation=activation)
 
     sess.close()
 
