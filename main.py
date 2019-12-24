@@ -34,8 +34,8 @@ def main():
     sort_by_fscore(networks)
     image = mnist.test.images[0]
     for i in range(300):
-        val = np.argmax(mnist.test.labels[200])
-        image = mnist.test.images[200]
+        val = np.argmax(mnist.test.labels[i])
+        image = mnist.test.images[i]
         if val == 6:
             break
         for net_index in range(5):  # print image for 5 networks with best fscores
