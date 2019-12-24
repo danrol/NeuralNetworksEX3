@@ -1,0 +1,4 @@
+calculate weights for conv layers
+
+change hyper paramters in function
+
