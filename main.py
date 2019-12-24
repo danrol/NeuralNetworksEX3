@@ -19,9 +19,9 @@ def main():
     # logging.basicConfig(level=logging.INFO, filename='logger.log', filemode='w')
     logging.basicConfig(level=logging.INFO)
     if tf.test.gpu_device_name():
-        print('GPU found')
+        logging.info('GPU found')
     else:
-        print("No GPU found")
+        logging.info("No GPU found")
     config = tf.compat.v1.ConfigProto()
     config.gpu_options.allow_growth = True
     sess = tf.compat.v1.InteractiveSession(config=config)
@@ -32,36 +32,32 @@ def main():
         network.run()
         logging.info(network.scores_str())
     sort_by_fscore(networks)
-
-    for i in range(50):
-        image = mnist.test.images[i]
-        val = networks[0].find_data_value(image)
+    image = mnist.test.images[0]
+    for i in range(300):
+        val = np.argmax(mnist.test.labels[200])
+        image = mnist.test.images[200]
         if val == 6:
             break
+        for net_index in range(5):  # print image for 5 networks with best fscores
+            for layer_num in [1, 2]:
+                for channel_num in [0]:
+                    for activation in [True, False]:
+                        if net_index <= (len(networks) - 1):
+                            logging.info("Printing net with fscore value = " + str(networks[net_index].fscore[2]))
+                            networks[net_index].visualize(image=image, layer_num=layer_num, channel_num=channel_num, before_activation=activation)
 
-    for net_index in range(5):  # print image for 5 networks with best fscores
-        if net_index <= (len(networks) - 1):
-            logging.info("Printing net with fscore value = " + str(networks[net_index].fscore))
-            networks[net_index].visualize(image=image, layer_num=1, channel_num=10, before_activation=False)
-            networks[net_index].visualize(image=image, layer_num=1, channel_num=10, before_activation=True)
-            networks[net_index].visualize(image=image, layer_num=2, channel_num=10, before_activation=False)
-            networks[net_index].visualize(image=image, layer_num=2, channel_num=10, before_activation=True)
     sess.close()
 
 
 def create_networks(session):
     networks = []
     # the following for loops set the network type and other parameters
-    for batch_size in [10]:
-        # for batch_size in [50, 100]:
-        # for train_range in [13000]:
-        for train_range in [100]:
-            # net = Network(session=session, network_type=logistic_regression, batch_size=batch_size, num_iterations=train_range)
-            # networks.append(net)
-
-            # net = Network(session=session, network_type=logistic_regression_with_layer, batch_size=batch_size, num_iterations=train_range)
-            # networks.append(net)
-            #
+    for batch_size in [50, 100]:
+        for train_range in [13000]:
+            net = Network(session=session, network_type=logistic_regression, batch_size=batch_size, num_iterations=train_range)
+            networks.append(net)
+            net = Network(session=session, network_type=logistic_regression_with_layer, batch_size=batch_size, num_iterations=train_range)
+            networks.append(net)
             for dropout in [0.5]:
                 net = Network(session=session, network_type=logistic_regression_conv_layers, batch_size=batch_size, num_iterations=train_range, keep_probability_value=dropout)
                 networks.append(net)
@@ -69,9 +65,10 @@ def create_networks(session):
 
 
 def sort_by_fscore(networks):
+    # sorting by fscores in Test data
     for i in range(len(networks)):
         for j in range(len(networks) - 1):
-            if networks[j] < networks[j + 1]:
+            if networks[j].fscore[2] < networks[j + 1].fscore[2]:
                 networks[j], networks[j + 1] = networks[j + 1], networks[j]
 
 
@@ -206,7 +203,7 @@ class Network:
         s = s + "\n\t\tNumber of weights in net is : " + str(self.num_weights_in_net)
         return s
 
-    def find_data_value(self, image):
+    def predict_image_value(self, image):
         z = self.session.run([self.z_variables], {self.x_placeholder: [image], self.keep_prob_placeholder: 1})
         return np.argmax(z[0], 1)[0]
 
@@ -287,7 +284,7 @@ def logistic_regression_with_layer(x_input_size=28, y_input_size=28, n_output=10
     z = tf.add(tf.matmul(h2_s_rel, w), b)
     num_weights_in_net = n_input * n_hidden1 + n_hidden1 + n_hidden1 * n_hidden2 + n_hidden2 + n_hidden2 * n_output + n_output
     net_parameters = [x_input_size, y_input_size, n_output, [n_hidden1, n_hidden2], num_weights_in_net]
-    return [x, z, None, t, h1_s, net_parameters, h1_s, h1_s_rel, h2_s, h2_s_rel]
+    return [x, z, None, t, net_parameters, h1_s, h1_s_rel, h2_s, h2_s_rel]
 
 
 def logistic_regression(x_input_size=28, y_input_size=28, n_output=10):
@@ -309,8 +306,20 @@ def logistic_regression(x_input_size=28, y_input_size=28, n_output=10):
 def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_output=10, num_filters1=32, num_filters2=64, drop_rate_percent=0.5, x_filter_size=5,
                                     y_filter_size=5, dimension_size=1, hidden_layer_size=1024):
     logging.info("***********LOGISTIC REGRESSION WITH CONVOLUTION***********")
-    num_weights_in_net = dimension_size * x_filter_size * y_filter_size * (num_filters1 + 1)
-    num_weights_in_net += x_filter_size * y_filter_size * num_filters1 * (num_filters2 + 1)
+    x_size_after_pool1 = int(x_input_size / 2)
+    y_size_after_pool1 = int(y_input_size / 2)
+    x_size_after_pool2 = int(x_input_size / 4)
+    y_size_after_pool2 = int(y_input_size / 4)
+    # first activation map
+    # input size = N = 786
+    # stride = S = 1
+    # padding = P = 8
+    # filter size = F = 25
+    # num weights = (N+2P-F)/S+1
+    num_weights_in_net = (((x_input_size*y_input_size + 2*8 - x_filter_size*y_filter_size)/1) + 1)*num_filters1
+    num_weights_in_net += (((x_size_after_pool1*y_size_after_pool1 + 2*2 - x_filter_size*y_filter_size)/1) + 1)*num_filters2
+    num_weights_in_net += x_size_after_pool2*y_size_after_pool2*num_filters2*hidden_layer_size + hidden_layer_size
+    num_weights_in_net += hidden_layer_size*n_output + n_output
 
     x = tf.compat.v1.placeholder(tf.float32, [None, x_input_size * y_input_size])
     t = tf.compat.v1.placeholder(tf.float32, [None, n_output], name="Targets")
@@ -329,12 +338,6 @@ def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_output=1
     h_pool2 = max_pooling_2x2(h_conv2_relu)
 
     # Fully connected layer 1024
-    x_size_after_pool1 = int(x_input_size / 2)
-    y_size_after_pool1 = int(y_input_size / 2)
-
-    x_size_after_pool2 = int(x_input_size / 4)
-    y_size_after_pool2 = int(y_input_size / 4)
-
     w_fc1 = weight_variable([x_size_after_pool2 * y_size_after_pool2 * num_filters2, hidden_layer_size])
     b_fc1 = bias_variable([hidden_layer_size])
 
