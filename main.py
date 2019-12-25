@@ -2,6 +2,7 @@ import logging
 import random
 from datetime import timedelta
 from timeit import default_timer as timer
+
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
@@ -39,6 +40,7 @@ def main():
         if val == 6:
             break
     for net_index in range(5):  # print image for 5 networks with best fscores
+        print("*********************************************************************************")
         for layer_num in [1, 2]:
             for channel_num in [0]:
                 for activation in [True, False]:
@@ -208,7 +210,7 @@ class Network:
         return np.argmax(z[0], 1)[0]
 
     def visualize(self, image, layer_num, channel_num, before_activation=False):
-        if layer_num != 0 and self.is_conv_net:
+        if layer_num != 0 and layer_num < 3 and self.is_conv_net:
             conv_layer = self.net[layer_num + 4]
             if before_activation:
                 the_layer = conv_layer[0]
@@ -216,7 +218,8 @@ class Network:
                 the_layer = conv_layer[1]
             z, layer = self.session.run([self.z_variables, the_layer], {self.x_placeholder: [image], self.keep_prob_placeholder: 1})
             prediction = np.argmax(z, 1)
-            logging.info("Printing layer number " + str(layer_num) + " channel number: " + str(channel_num) + " for predicted value " + str(prediction) + ( "before relu " if before_activation else " after relu"))
+            logging.info("Printing layer number " + str(layer_num) + " channel number: " + str(channel_num) + " for predicted value " + str(prediction) + (
+                "before relu " if before_activation else " after relu"))
             num_filters = conv_layer[4]
             x_size = conv_layer[2]
             y_size = conv_layer[3]
@@ -225,7 +228,12 @@ class Network:
             pixels = first_image[channel_num].reshape((x_size, y_size))
 
         else:  # print the input
-            logging.info("Invalid input, printing the image as is")
+            if self.is_conv_net is True:
+                logging.info("Invalid input, printing the image as is")
+            elif self.is_conv_net is False and layer_num != 0:
+                logging.info("invalid input, printing input")
+            else:
+                logging.info("Printing layer 0 which is the input")
             first_image = np.array(image, dtype='float')  # 28x28, filter size
             x_size = self.net_parameters[0]
             y_size = self.net_parameters[1]
@@ -316,10 +324,10 @@ def logistic_regression_conv_layers(x_input_size=28, y_input_size=28, n_output=1
     # padding = P = 8
     # filter size = F = 25
     # num weights = (N+2P-F)/S+1
-    num_weights_in_net = (((x_input_size*y_input_size + 2*8 - x_filter_size*y_filter_size)/1) + 1)*num_filters1
-    num_weights_in_net += (((x_size_after_pool1*y_size_after_pool1 + 2*2 - x_filter_size*y_filter_size)/1) + 1)*num_filters2
-    num_weights_in_net += x_size_after_pool2*y_size_after_pool2*num_filters2*hidden_layer_size + hidden_layer_size
-    num_weights_in_net += hidden_layer_size*n_output + n_output
+    num_weights_in_net = (((x_input_size * y_input_size + 2 * 8 - x_filter_size * y_filter_size) / 1) + 1) * num_filters1
+    num_weights_in_net += (((x_size_after_pool1 * y_size_after_pool1 + 2 * 2 - x_filter_size * y_filter_size) / 1) + 1) * num_filters2
+    num_weights_in_net += x_size_after_pool2 * y_size_after_pool2 * num_filters2 * hidden_layer_size + hidden_layer_size
+    num_weights_in_net += hidden_layer_size * n_output + n_output
 
     x = tf.compat.v1.placeholder(tf.float32, [None, x_input_size * y_input_size])
     t = tf.compat.v1.placeholder(tf.float32, [None, n_output], name="Targets")
