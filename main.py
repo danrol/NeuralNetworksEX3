@@ -263,7 +263,7 @@ class Network:
                 if self.accuracy[Network.DataType.VALIDATION] >= 0.99:
                     iteration_number_for_target_accuracy = _
                     t3 = timer()
-                    break
+                    
         if iteration_number_for_target_accuracy is not None:
             logging.info("Reached 99% accuracy within " + str(iteration_number_for_target_accuracy) + " iterations and " + str(timedelta(seconds=t3 - t1)))
         t2 = timer()
