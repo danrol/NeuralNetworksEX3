@@ -216,11 +216,10 @@ class Network:
                 the_layer = conv_layer[0]
             else:
                 the_layer = conv_layer[1]
-            z, layer = self.session.run([self.z_variables, the_layer], {self.x_placeholder: [image], self.keep_prob_placeholder: 1})
-            prediction = np.argmax(z, 1)
-            logging.info("Printing layer number " + str(layer_num) + " channel number: " + str(channel_num) + " for predicted value " + str(prediction) + (
-                "before relu " if before_activation else " after relu"))
+            layer = self.session.run([the_layer], {self.x_placeholder: [image], self.keep_prob_placeholder: 1})
+            logging.info("Printing layer number " + str(layer_num) + " channel number: " + str(channel_num) + (" before relu " if before_activation else " after relu"))
             num_filters = conv_layer[4]
+            
             x_size = conv_layer[2]
             y_size = conv_layer[3]
             first_image = np.transpose(np.array(layer[0], dtype='float').reshape((x_size * y_size, num_filters)))  # 28x28, filter size
